@@ -1,47 +1,40 @@
 package common;
 
-// Opcode enum - exactly as defined in Reference.txt
-// R-Type (opcode=000): ADD, SUB, SLL, XOR, SRL, OR, AND, MUL, DIV
-// I-Type (opcode=001): ADDI, XORI, ORI, ANDI, LB, LW, LI
-// S-Type (opcode=100): SB, SW
-// B-Type (opcode=011): BEQ, BNE, BLT, BGE
-// J-Type (opcode=010): JAL
-// U-Type (opcode=101): ECALL, HALT
+// All supported opcodes for the simulator's custom RISC-V-like ISA.
+// Grouped by instruction format type.
 public enum Opcode {
-    // R-Type
-    ADD,
-    SUB,
-    SLL,
-    XOR,
-    SRL,
-    OR,
-    AND,
-    MUL,
-    DIV,
 
-    // I-Type
-    ADDI,
-    XORI,
-    ORI,
-    ANDI,
-    LB,
-    LW,
-    LI,
+    // R-Type: two source registers → one destination register
+    ADD, // rd = rs1 + rs2
+    SUB, // rd = rs1 - rs2
+    MUL, // rd = rs1 * rs2
+    DIV, // rd = rs1 / rs2
+    SLL, // rd = rs1 << rs2 (shift left logical)
+    SRL, // rd = rs1 >>> rs2 (shift right logical, unsigned)
+    XOR, // rd = rs1 ^ rs2
+    OR, // rd = rs1 | rs2
+    AND, // rd = rs1 & rs2
 
-    // S-Type
-    SB,
-    SW,
+    // I-Type: one source register + immediate → one destination register
+    ADDI, // rd = rs1 + immediate
+    LW, // rd = Memory[rs1 + immediate] (load word, 32-bit)
+    LB, // rd = Memory[rs1 + immediate] (load byte, 8-bit)
+    LI, // rd = immediate (load immediate, pseudo-instruction)
 
-    // B-Type
-    BEQ,
-    BNE,
-    BLT,
-    BGE,
+    // S-Type: store register value to memory
+    SW, // Memory[rs1 + immediate] = rs2 (store word)
+    SB, // Memory[rs1 + immediate] = rs2 (store byte)
 
-    // J-Type
-    JAL,
+    // B-Type: conditional branches (compare two registers, jump by offset)
+    BEQ, // if rs1 == rs2, jump to PC + offset
+    BNE, // if rs1 != rs2, jump to PC + offset
+    BLT, // if rs1 < rs2, jump to PC + offset
+    BGE, // if rs1 >= rs2, jump to PC + offset
 
-    // U-Type
-    ECALL,
-    HALT
+    // J-Type: unconditional jump
+    JAL, // rd = PC + 4; jump to PC + offset (jump and link)
+
+    // U-Type: system/control
+    ECALL, // system call — dumps registers to console
+    HALT // stop execution
 }
