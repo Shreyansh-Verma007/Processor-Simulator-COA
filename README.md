@@ -235,6 +235,9 @@ title: RISC-V Pipeline Simulator - Phase 1
 classDiagram
     direction TB
 
+    %% ═══════════════════════════════════════
+    %%  NAMESPACE: common
+    %% ═══════════════════════════════════════
     namespace common {
         class Opcode {
             <<enumeration>>
@@ -279,6 +282,8 @@ classDiagram
             +int rs2
             +int immediate
             +String label
+            +Instruction(op, rd, rs1, rs2)
+            +Instruction(op, rd, rs1, imm)
         }
 
         class Config {
@@ -286,47 +291,145 @@ classDiagram
             -boolean forwardingEnabled
             +int getLatency(Opcode op)
             +boolean isForwardingEnabled()
+            +void setForwardingEnabled(boolean f)
         }
     }
 
+    Instruction --> Opcode : uses
+    Instruction ..> InstructionType : classified by
+
+    %% ═══════════════════════════════════════
+    %%  NAMESPACE: compiler
+    %% ═══════════════════════════════════════
     namespace compiler {
-        class Compiler
-        class CompilationResult
-        class Lexer
-        class Parser
-        class CompilerPass
-        class LabelResolutionPass
+        class Compiler {
+            +CompilationResult compile(String path)
+        }
+
+        class CompilationResult {
+            +List instructions
+            +Map symbolMap
+        }
+
+        class Lexer {
+            +List tokenize(String source)
+        }
+
+        class Parser {
+            +List parse(List tokens)
+        }
+
+        class CompilerPass {
+            <<interface>>
+            +void run(List program, Map symbols)
+        }
+
+        class LabelResolutionPass {
+            +void run(List program, Map symbols)
+        }
     }
 
+    Compiler *-- CompilationResult : produces
+    Compiler --> Lexer : delegates
+    Compiler --> Parser : delegates
+    Compiler --> CompilerPass : applies passes
+    LabelResolutionPass ..|> CompilerPass
+    CompilationResult --> Instruction : contains
+
+    %% ═══════════════════════════════════════
+    %%  NAMESPACE: core
+    %% ═══════════════════════════════════════
     namespace core {
-        class Memory
-        class RegisterFile
-        class Stats
-        class Processor
+        class Memory {
+            -byte[] data
+            +int readWord(int address)
+            +void writeWord(int addr, int val)
+            +void loadProgram(List instrs)
+        }
+
+        class RegisterFile {
+            -int[] registers
+            +int read(int index)
+            +void write(int index, int value)
+        }
+
+        class Stats {
+            -int cycleCount
+            -int instructionsCommitted
+            -int stallCount
+            +void incrementCycles()
+            +void incrementCommitted()
+            +void incrementStalls()
+            +double getIPC()
+            +String report()
+        }
+
+        class Processor {
+            -Memory memory
+            -RegisterFile registerFile
+            -Stats stats
+            -Config config
+            -PipelineController pipeline
+            +void run(List program)
+            +void step()
+        }
     }
 
+    Processor *-- Memory
+    Processor *-- RegisterFile
+    Processor *-- Stats
+    Processor --> Config : reads
+
+    %% ═══════════════════════════════════════
+    %%  NAMESPACE: pipeline_stages
+    %% ═══════════════════════════════════════
     namespace pipeline_stages {
-        class PipelineController
-        class Stage
-        class IF_Stage
-        class ID_Stage
-        class EX_Stage
-        class MEM_Stage
-        class WB_Stage
-    }
+        class PipelineController {
+            -List stages
+            -HazardUnit hazardUnit
+            -ForwardingUnit forwardingUnit
+            +void tick()
+            +void flush()
+            +boolean isFinished()
+        }
 
-    namespace pipeline_registers {
-        class PipelineRegister
-        class IF_ID
-        class ID_EX
-        class EX_MEM
-        class MEM_WB
-    }
+        class Stage {
+            <<abstract>>
+            #String name
+            +void execute()*
+            +boolean isStalled()
+        }
 
-    namespace hazard {
-        class HazardUnit
-        class ForwardingUnit
-        class ForwardResult
+        class IF_Stage {
+            <<Instruction Fetch>>
+            -int pc
+            +void execute()
+            +void setPC(int addr)
+            +int getPC()
+        }
+
+        class ID_Stage {
+            <<Instruction Decode>>
+            +void execute()
+            -void decodeFields(Instruction instr)
+        }
+
+        class EX_Stage {
+            <<Execute>>
+            +void execute()
+            -int computeALU(Opcode op, int a, int b)
+            -boolean evaluateBranch(Opcode op, int a, int b)
+        }
+
+        class MEM_Stage {
+            <<Memory Access>>
+            +void execute()
+        }
+
+        class WB_Stage {
+            <<Write Back>>
+            +void execute()
+        }
     }
 
     IF_Stage  --|> Stage
@@ -335,23 +438,111 @@ classDiagram
     MEM_Stage --|> Stage
     WB_Stage  --|> Stage
 
+    %% ═══════════════════════════════════════
+    %%  NAMESPACE: pipeline_registers
+    %% ═══════════════════════════════════════
+    namespace pipeline_registers {
+        class PipelineRegister {
+            <<abstract>>
+            #boolean nop
+            +void clear()
+            +boolean isNop()
+            +void setNop(boolean flag)
+        }
+
+        class IF_ID {
+            +Instruction instruction
+            +int pc
+        }
+
+        class ID_EX {
+            +Instruction instruction
+            +int readData1
+            +int readData2
+            +int immediate
+            +int rd
+            +int rs1
+            +int rs2
+        }
+
+        class EX_MEM {
+            +Instruction instruction
+            +int aluResult
+            +int writeData
+            +int rd
+            +boolean branchTaken
+            +int branchTarget
+        }
+
+        class MEM_WB {
+            +Instruction instruction
+            +int aluResult
+            +int memData
+            +int rd
+        }
+    }
+
     IF_ID   --|> PipelineRegister
     ID_EX   --|> PipelineRegister
     EX_MEM  --|> PipelineRegister
     MEM_WB  --|> PipelineRegister
 
-    Processor *-- Memory
-    Processor *-- RegisterFile
-    Processor *-- Stats
-    Processor *-- PipelineController
+    %% ═══════════════════════════════════════
+    %%  NAMESPACE: hazard
+    %% ═══════════════════════════════════════
+    namespace hazard {
+        class HazardUnit {
+            +boolean detectHazard(ID_EX, EX_MEM, MEM_WB)
+            +boolean shouldStall()
+            +boolean shouldFlush()
+        }
 
-    PipelineController --> HazardUnit
-    PipelineController --> ForwardingUnit
+        class ForwardingUnit {
+            +ForwardResult resolve(int rs1, int rs2, EX_MEM, MEM_WB)
+        }
 
-    IF_Stage  --> Memory
-    MEM_Stage --> Memory
-    ID_Stage  --> RegisterFile
-    WB_Stage  --> RegisterFile
+        class ForwardResult {
+            +int forwardA
+            +int forwardB
+            +boolean useForwardA
+            +boolean useForwardB
+        }
+    }
+
+    ForwardingUnit --> ForwardResult : produces
+
+    %% ═══════════════════════════════════════
+    %%  Cross-namespace relationships
+    %% ═══════════════════════════════════════
+
+    Processor *-- PipelineController : drives
+    PipelineController *-- Stage : 5 stages
+    PipelineController *-- PipelineRegister : 4 regs
+
+    PipelineController --> HazardUnit : queries
+    PipelineController --> ForwardingUnit : queries
+
+    IF_Stage  --> Memory : fetches instruction
+    MEM_Stage --> Memory : read/write data
+    ID_Stage  --> RegisterFile : reads registers
+    WB_Stage  --> RegisterFile : writes result
+
+    IF_Stage  ..> IF_ID  : writes
+    ID_Stage  ..> IF_ID  : reads
+    ID_Stage  ..> ID_EX  : writes
+    EX_Stage  ..> ID_EX  : reads
+    EX_Stage  ..> EX_MEM : writes
+    MEM_Stage ..> EX_MEM : reads
+    MEM_Stage ..> MEM_WB : writes
+    WB_Stage  ..> MEM_WB : reads
+
+    HazardUnit     --> ID_EX  : inspects
+    HazardUnit     --> EX_MEM : inspects
+    ForwardingUnit --> EX_MEM : inspects
+    ForwardingUnit --> MEM_WB : inspects
+
+    Compiler --> Instruction : produces
+    EX_Stage --> Config : reads latency
 ```
 
 
