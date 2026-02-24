@@ -6,9 +6,12 @@ import common.Opcode;
 import java.util.ArrayList;
 import java.util.Map;
 
+// Parses tokenized assembly lines into Instruction objects.
+// Each line is split into parts (opcode + operands) and converted
+// to the appropriate instruction type (R, I, S, B, J, U).
 public class Parser {
-    private Map<String, Integer> symbols;
-    private int instrIndex;
+    private Map<String, Integer> symbols; // label → byte address
+    private int instrIndex; // current instruction number
 
     public Parser(Map<String, Integer> symbols) {
         this.symbols = symbols;
@@ -16,12 +19,13 @@ public class Parser {
     }
 
     public Parser() {
-        this.symbols = new java.util.HashMap<String, Integer>();
+        this.symbols = new java.util.HashMap<>();
         this.instrIndex = 0;
     }
 
+    // Parse all tokens into a list of Instructions
     ArrayList<Instruction> parse(ArrayList<String> tokens) {
-        ArrayList<Instruction> program = new ArrayList<Instruction>();
+        ArrayList<Instruction> program = new ArrayList<>();
         instrIndex = 0;
 
         for (int i = 0; i < tokens.size(); i++) {
@@ -29,9 +33,11 @@ public class Parser {
             if (token.isEmpty())
                 continue;
 
+            // Skip standalone labels like "loop:"
             if (token.endsWith(":"))
                 continue;
 
+            // Handle "label: instruction" on the same line
             String line = token;
             if (token.contains(":")) {
                 line = token.substring(token.indexOf(':') + 1).trim();
@@ -48,128 +54,148 @@ public class Parser {
         return program;
     }
 
+    // Parse a single assembly line into an Instruction
     private Instruction parseInstruction(String line, int idx) {
-        line = line.replaceAll(",", " ");
-        String[] p = line.trim().split("\\s+");
+        line = line.replaceAll(",", " "); // remove commas
+        String[] p = line.trim().split("\\s+"); // split by whitespace
         if (p.length == 0 || p[0].isEmpty())
             return null;
 
         String op = p[0].toUpperCase();
-        int pc = idx * 4;
+        int pc = idx * 4; // byte address of this instruction
 
-        if (op.equals("ADD")) {
+        // --- R-Type: op rd, rs1, rs2 ---
+        if (op.equals("ADD"))
             return Instruction.rType(Opcode.ADD, reg(p[1]), reg(p[2]), reg(p[3]));
-        } else if (op.equals("SUB")) {
+        if (op.equals("SUB"))
             return Instruction.rType(Opcode.SUB, reg(p[1]), reg(p[2]), reg(p[3]));
-        } else if (op.equals("SLL")) {
-            return Instruction.rType(Opcode.SLL, reg(p[1]), reg(p[2]), reg(p[3]));
-        } else if (op.equals("XOR")) {
-            return Instruction.rType(Opcode.XOR, reg(p[1]), reg(p[2]), reg(p[3]));
-        } else if (op.equals("SRL")) {
-            return Instruction.rType(Opcode.SRL, reg(p[1]), reg(p[2]), reg(p[3]));
-        } else if (op.equals("OR")) {
-            return Instruction.rType(Opcode.OR, reg(p[1]), reg(p[2]), reg(p[3]));
-        } else if (op.equals("AND")) {
-            return Instruction.rType(Opcode.AND, reg(p[1]), reg(p[2]), reg(p[3]));
-        } else if (op.equals("MUL")) {
+        if (op.equals("MUL"))
             return Instruction.rType(Opcode.MUL, reg(p[1]), reg(p[2]), reg(p[3]));
-        } else if (op.equals("DIV")) {
+        if (op.equals("DIV"))
             return Instruction.rType(Opcode.DIV, reg(p[1]), reg(p[2]), reg(p[3]));
-        } else if (op.equals("ADDI")) {
+        if (op.equals("SLL"))
+            return Instruction.rType(Opcode.SLL, reg(p[1]), reg(p[2]), reg(p[3]));
+        if (op.equals("SRL"))
+            return Instruction.rType(Opcode.SRL, reg(p[1]), reg(p[2]), reg(p[3]));
+        if (op.equals("XOR"))
+            return Instruction.rType(Opcode.XOR, reg(p[1]), reg(p[2]), reg(p[3]));
+        if (op.equals("OR"))
+            return Instruction.rType(Opcode.OR, reg(p[1]), reg(p[2]), reg(p[3]));
+        if (op.equals("AND"))
+            return Instruction.rType(Opcode.AND, reg(p[1]), reg(p[2]), reg(p[3]));
+
+        // --- I-Type: op rd, rs1, imm ---
+        if (op.equals("ADDI"))
             return Instruction.iType(Opcode.ADDI, reg(p[1]), reg(p[2]), imm(p[3], pc));
-        } else if (op.equals("XORI")) {
-            return Instruction.iType(Opcode.XORI, reg(p[1]), reg(p[2]), imm(p[3], pc));
-        } else if (op.equals("ORI")) {
-            return Instruction.iType(Opcode.ORI, reg(p[1]), reg(p[2]), imm(p[3], pc));
-        } else if (op.equals("ANDI")) {
-            return Instruction.iType(Opcode.ANDI, reg(p[1]), reg(p[2]), imm(p[3], pc));
-        } else if (op.equals("LI")) {
+
+        if (op.equals("LI")) {
+            // LI can be "LI x1, 10" (2 operands) or "LI x1, x0, 10" (3 operands)
             if (p.length == 3) {
                 return Instruction.iType(Opcode.LI, reg(p[1]), 0, imm(p[2], pc));
             } else {
                 return Instruction.iType(Opcode.LI, reg(p[1]), reg(p[2]), imm(p[3], pc));
             }
-        } else if (op.equals("LW")) {
+        }
+
+        // LW/LB: "LW x1, 0(x2)" or "LW x1, x2, imm"
+        if (op.equals("LW")) {
             int rd = reg(p[1]);
             if (p[2].contains("(")) {
                 return Instruction.iType(Opcode.LW, rd, memReg(p[2]), memOff(p[2]));
             } else {
                 return Instruction.iType(Opcode.LW, rd, reg(p[2]), imm(p[3], pc));
             }
-        } else if (op.equals("LB")) {
+        }
+        if (op.equals("LB")) {
             int rd = reg(p[1]);
             if (p[2].contains("(")) {
                 return Instruction.iType(Opcode.LB, rd, memReg(p[2]), memOff(p[2]));
             } else {
                 return Instruction.iType(Opcode.LB, rd, reg(p[2]), imm(p[3], pc));
             }
-        } else if (op.equals("SW")) {
+        }
+
+        // --- S-Type: op rs2, offset(rs1) ---
+        if (op.equals("SW")) {
             int rs2 = reg(p[1]);
             if (p[2].contains("(")) {
                 return Instruction.sType(Opcode.SW, memReg(p[2]), rs2, memOff(p[2]));
             } else {
                 return Instruction.sType(Opcode.SW, reg(p[2]), rs2, imm(p[3], pc));
             }
-        } else if (op.equals("SB")) {
+        }
+        if (op.equals("SB")) {
             int rs2 = reg(p[1]);
             if (p[2].contains("(")) {
                 return Instruction.sType(Opcode.SB, memReg(p[2]), rs2, memOff(p[2]));
             } else {
                 return Instruction.sType(Opcode.SB, reg(p[2]), rs2, imm(p[3], pc));
             }
-        } else if (op.equals("BEQ")) {
-            return Instruction.bType(Opcode.BEQ, reg(p[1]), reg(p[2]), imm(p[3], pc));
-        } else if (op.equals("BNE")) {
-            return Instruction.bType(Opcode.BNE, reg(p[1]), reg(p[2]), imm(p[3], pc));
-        } else if (op.equals("BLT")) {
-            return Instruction.bType(Opcode.BLT, reg(p[1]), reg(p[2]), imm(p[3], pc));
-        } else if (op.equals("BGE")) {
-            return Instruction.bType(Opcode.BGE, reg(p[1]), reg(p[2]), imm(p[3], pc));
-        } else if (op.equals("JAL")) {
-            return Instruction.jType(Opcode.JAL, reg(p[1]), imm(p[2], pc));
-        } else if (op.equals("ECALL")) {
-            return Instruction.uType(Opcode.ECALL, 0, "");
-        } else if (op.equals("HALT")) {
-            return Instruction.uType(Opcode.HALT, 0, "");
-        } else {
-            throw new RuntimeException("Unknown instruction: " + op);
         }
+
+        // --- B-Type: op rs1, rs2, label ---
+        if (op.equals("BEQ"))
+            return Instruction.bType(Opcode.BEQ, reg(p[1]), reg(p[2]), imm(p[3], pc));
+        if (op.equals("BNE"))
+            return Instruction.bType(Opcode.BNE, reg(p[1]), reg(p[2]), imm(p[3], pc));
+        if (op.equals("BLT"))
+            return Instruction.bType(Opcode.BLT, reg(p[1]), reg(p[2]), imm(p[3], pc));
+        if (op.equals("BGE"))
+            return Instruction.bType(Opcode.BGE, reg(p[1]), reg(p[2]), imm(p[3], pc));
+
+        // --- J-Type: JAL rd, label ---
+        if (op.equals("JAL"))
+            return Instruction.jType(Opcode.JAL, reg(p[1]), imm(p[2], pc));
+
+        // --- U-Type: system instructions ---
+        if (op.equals("ECALL"))
+            return Instruction.uType(Opcode.ECALL, 0, "");
+        if (op.equals("HALT"))
+            return Instruction.uType(Opcode.HALT, 0, "");
+
+        throw new RuntimeException("Unknown instruction: " + op);
     }
 
+    // Parse register name "x5" → 5 (must be x0–x31)
     private int reg(String s) {
         s = s.trim();
         if (s.startsWith("x") || s.startsWith("X")) {
-            return Integer.parseInt(s.substring(1));
+            int r = Integer.parseInt(s.substring(1));
+            if (r < 0 || r > 31)
+                throw new RuntimeException("Register out of range (must be x0–x31): " + s);
+            return r;
         }
         throw new RuntimeException("Bad register: " + s);
     }
 
+    // Parse immediate value or label name → integer offset
+    // Labels are resolved to (label_address - current_pc) for relative jumps
     private int imm(String s, int pc) {
         s = s.trim();
         if (isLabel(s)) {
             Integer addr = symbols.get(s);
-            if (addr == null) {
+            if (addr == null)
                 throw new RuntimeException("Undefined label: " + s);
-            }
-            return addr - pc;
+            return addr - pc; // relative offset
         }
         return Integer.parseInt(s);
     }
 
+    // Extract offset from "offset(reg)" format, e.g. "4(x1)" → 4
     private int memOff(String s) {
         int lp = s.indexOf('(');
         String off = s.substring(0, lp).trim();
-        if (off.isEmpty())
-            return 0;
-        return Integer.parseInt(off);
+        return off.isEmpty() ? 0 : Integer.parseInt(off);
     }
 
+    // Extract register number from "offset(reg)" format, e.g. "4(x1)" → 1
     private int memReg(String s) {
         int lp = s.indexOf('(');
         int rp = s.indexOf(')');
         return reg(s.substring(lp + 1, rp).trim());
     }
 
+    // Check if a string looks like a label (starts with letter or underscore)
     private boolean isLabel(String s) {
         if (s == null || s.isEmpty())
             return false;
