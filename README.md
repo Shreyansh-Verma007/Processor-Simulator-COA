@@ -65,6 +65,22 @@ The system is structured around a central **Processor** and a **PipelineControll
 
 ---
 
+## 🚀 Simulation Workflow
+
+The simulator is designed for rapid iteration. Modify your assembly, run the simulation, and inspect results immediately.
+
+### 📥 Input
+- **File**: `input.asm`
+- **Format**: RISC-V Assembly (subset)
+- **Content**: Provide your instructions here. The simulator defaults to `input.asm` if no file is specified.
+
+### 📤 Output
+- **Console**: Real-time cycle-by-step logs and performance summary.
+- **`console.txt`**: A full log of every cycle's execution for debugging.
+- **`output.txt`**: Final simulation statistics (Cycles, Stalls, IPC, etc.).
+
+---
+
 ## 🔄 Pipeline Registers
 
 Each stage boundary is separated by a dedicated pipeline register:
@@ -151,10 +167,11 @@ Produces:
 
 | Type | Instructions |
 |------|-------------|
-| 🧮 Arithmetic | `ADD`, `SUB` |
-| 💾 Memory | `LW`, `SW` |
-| 🌿 Branch | `BNE` |
+| 🧮 Arithmetic | `ADD`, `SUB`, `MUL`, `DIV`, `ADDI`, `LI`, `AND`, `OR`, `XOR`, `SLL`, `SRL` |
+| 💾 Memory | `LW`, `LB`, `SW`, `SB` |
+| 🌿 Branch | `BEQ`, `BNE`, `BLT`, `BGE` |
 | 🔀 Jump | `JAL` |
+| 🛑 System | `ECALL`, `HALT` |
 
 ---
 
@@ -548,17 +565,26 @@ classDiagram
 
 ## 🛠️ Build & Run
 
-### Compile
+### 🔨 Compile
+Compile all source files into the `bin` directory:
 
-```bash
-javac -d out src/**/*.java
+```powershell
+javac -d bin src/**/*.java
 ```
 
-### Run
+### 🏃 Run
+Execute the simulator using the `Main` entry point:
 
-```bash
-java -cp out core.Processor <assembly_file>
+```powershell
+# Run with default input.asm
+java -cp bin Main
+
+# Or specify a custom assembly file
+java -cp bin Main program.asm
 ```
+
+> [!TIP]
+> After running, check `console.txt` for detailed cycle logs and `output.txt` for performance metrics.
 
 ---
 
