@@ -45,10 +45,6 @@ public class EX_Stage {
 
         out.branchTaken = resolveBranch(idEx.opcode, a, b, idEx.immediate, idEx.pc, out);
 
-        if (idEx.opcode == Opcode.JAL) {
-            out.aluResult = idEx.pc + 4; // return address
-        }
-
         if (idEx.opcode == Opcode.ECALL || idEx.opcode == Opcode.HALT) {
             if (idEx.opcode == Opcode.ECALL)
                 rf.dump();
@@ -61,6 +57,10 @@ public class EX_Stage {
     // Resolve operand A with forwarding priority: EX/MEM > newMEM/WB > oldMEM/WB >
     // register file
     private int resolveOperandA(ID_EX idEx, EX_MEM prevExMem, MEM_WB newMemWb, MEM_WB oldMemWb, ForwardingUnit fu) {
+        // No forwarding — read directly from register file
+        if (fu == null)
+            return rf.read(idEx.rs1);
+
         ForwardResult fa = fu.getForwardA(idEx, prevExMem, newMemWb);
         if (fa == ForwardResult.FROM_EX_MEM)
             return prevExMem.aluResult;
@@ -75,6 +75,10 @@ public class EX_Stage {
 
     // Resolve operand B with same priority chain
     private int resolveOperandB(ID_EX idEx, EX_MEM prevExMem, MEM_WB newMemWb, MEM_WB oldMemWb, ForwardingUnit fu) {
+        // No forwarding — read directly from register file
+        if (fu == null)
+            return rf.read(idEx.rs2);
+
         ForwardResult fb = fu.getForwardB(idEx, prevExMem, newMemWb);
         if (fb == ForwardResult.FROM_EX_MEM)
             return prevExMem.aluResult;
@@ -118,6 +122,10 @@ public class EX_Stage {
             return a + imm;
         if (op == Opcode.SW || op == Opcode.SB)
             return a + imm;
+
+        // J-Type: return address is PC + 4
+        if (op == Opcode.JAL)
+            return pc + 4;
 
         return 0; // branches, ECALL, HALT don't produce ALU results
     }

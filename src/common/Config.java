@@ -12,7 +12,7 @@ public class Config {
 
     public Config() {
         this.latencies = new HashMap<>();
-        this.forwardingEnabled = true;
+        this.forwardingEnabled = false;
 
         // R-Type: most are 1 cycle, MUL and DIV are multi-cycle
         latencies.put(Opcode.ADD, 1);

@@ -38,7 +38,7 @@ public class PipelineController {
         // Simulation loop
         while (true) {
 
-            boolean stall = hazard.needsStall(idEx, ifId);
+            boolean stall = hazard.needsStall(idEx, ifId, cfg);
             boolean isMultiCycleStall = (idEx.latencyCyclesLeft > 0);
 
             MEM_WB oldMemWb = memWb;
@@ -46,7 +46,8 @@ public class PipelineController {
 
             MEM_WB newMemWb = memStage.tick(exMem, mem);
 
-            EX_MEM newExMem = exStage.tick(idEx, exMem, newMemWb, oldMemWb, forwarding);
+            EX_MEM newExMem = exStage.tick(idEx, exMem, newMemWb, oldMemWb,
+                    cfg.isForwardingEnabled() ? forwarding : null);
 
             memWb = newMemWb;
             exMem = newExMem;

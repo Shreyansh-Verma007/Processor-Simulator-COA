@@ -14,7 +14,7 @@ public class Compiler {
         Map<String, Integer> symbols = buildSymbolTable(tokens);
         Parser parser = new Parser(symbols);
         ArrayList<Instruction> program = parser.parse(tokens);
-        return new CompilationResult(program, symbols);
+        return new CompilationResult(program);
     }
 
     private Map<String, Integer> buildSymbolTable(ArrayList<String> tokens) {

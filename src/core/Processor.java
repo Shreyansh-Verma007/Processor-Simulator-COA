@@ -34,4 +34,8 @@ public class Processor {
     public void preload(int address, int[] values) {
         mem.preload(address, values);
     }
+
+    public void dumpMemory(int address, int count) {
+        mem.dump(address, count);
+    }
 }

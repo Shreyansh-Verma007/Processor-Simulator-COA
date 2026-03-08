@@ -60,5 +60,8 @@ public class Main {
         }
 
         System.out.println("\n✔ Results saved to console.txt and output.txt");
+
+        // Dump the processor's actual memory (where SW instructions wrote data)
+        //processor.dumpMemory(0, 4095);
     }
 }
