@@ -1,6 +1,6 @@
 === Simulation Stats ===
-Cycles             : 76
-Stalls             : 3
-Branch Flushes     : 6
-Instructions Retired: 46
-IPC                : 0.605
+Cycles             : 883
+Stalls             : 55
+Branch Flushes     : 92
+Instructions Retired: 569
+IPC                : 0.644

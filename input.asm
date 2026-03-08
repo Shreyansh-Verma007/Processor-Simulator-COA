@@ -1,12 +1,12 @@
 # ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║                    RISC-V PIPELINE SIMULATOR — QUICK REFERENCE             ║
+# ║                    RISC-V PIPELINE SIMULATOR — QUICK REFERENCE               ║
 # ╠══════════════════════════════════════════════════════════════════════════════╣
-# ║  WORKFLOW:                                                                 ║
-# ║    1. Write your assembly code below the reference section                 ║
-# ║    2. Run Main.java (no arguments needed)                                  ║
-# ║    3. Program output (register dump)  →  console.txt                       ║
-# ║    4. Simulation stats (cycles, IPC)  →  output.txt                        ║
-# ║    5. Edit this file, re-run Main — outputs are overwritten each time      ║
+# ║  WORKFLOW:                                                                   ║
+# ║    1. Write your assembly code below the reference section                   ║
+# ║    2. Run Main.java (no arguments needed)                                    ║
+# ║    3. Program output (register dump)  →  console.txt                         ║
+# ║    4. Simulation stats (cycles, IPC)  →  output.txt                          ║
+# ║    5. Edit this file, re-run Main — outputs are overwritten each time        ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 #
 # ─────────────────────────────── REGISTERS ───────────────────────────────────
@@ -36,9 +36,9 @@
 #  │  DIV  rd, rs1, rs2    rd = rs1 / rs2                         (4 cycles)  │
 #  │  SLL  rd, rs1, rs2    rd = rs1 << rs2  (shift left logical)  (1 cycle)   │
 #  │  SRL  rd, rs1, rs2    rd = rs1 >>> rs2 (shift right logical) (1 cycle)   │
-#  │  XOR  rd, rs1, rs2    rd = rs1 ^ rs2   (bitwise XOR)        (1 cycle)   │
-#  │  OR   rd, rs1, rs2    rd = rs1 | rs2   (bitwise OR)         (1 cycle)   │
-#  │  AND  rd, rs1, rs2    rd = rs1 & rs2   (bitwise AND)        (1 cycle)   │
+#  │  XOR  rd, rs1, rs2    rd = rs1 ^ rs2   (bitwise XOR)        (1 cycle)    │
+#  │  OR   rd, rs1, rs2    rd = rs1 | rs2   (bitwise OR)         (1 cycle)    │
+#  │  AND  rd, rs1, rs2    rd = rs1 & rs2   (bitwise AND)        (1 cycle)    │
 #  └──────────────────────────────────────────────────────────────────────────┘
 #
 #  ┌─ I-Type (immediate) ────────────────────────────────────────────────────┐
@@ -46,31 +46,31 @@
 #  │  LI   rd, imm         rd = immediate (pseudo: ADDI rd, x0, imm)         │
 #  │  LW   rd, offset(rs1) rd = Memory[rs1 + offset] (load word) (1 cycle)   │
 #  │  LB   rd, offset(rs1) rd = Memory[rs1 + offset] (load byte) (1 cycle)   │
-#  └──────────────────────────────────────────────────────────────────────────┘
+#  └─────────────────────────────────────────────────────────────────────────┘
 #
 #  ┌─ S-Type (store) ────────────────────────────────────────────────────────┐
 #  │  SW   rs2, offset(rs1)  Memory[rs1 + offset] = rs2 (store word)         │
 #  │  SB   rs2, offset(rs1)  Memory[rs1 + offset] = rs2 (store byte)         │
-#  └──────────────────────────────────────────────────────────────────────────┘
+#  └─────────────────────────────────────────────────────────────────────────┘
 #
 #  ┌─ B-Type (branches — conditional jumps to labels) ───────────────────────┐
-#  │  Syntax: OP rs1, rs2, label                                              │
-#  │                                                                          │
-#  │  BEQ  rs1, rs2, label   jump if rs1 == rs2                               │
-#  │  BNE  rs1, rs2, label   jump if rs1 != rs2                               │
-#  │  BLT  rs1, rs2, label   jump if rs1 <  rs2                               │
-#  │  BGE  rs1, rs2, label   jump if rs1 >= rs2                               │
-#  └──────────────────────────────────────────────────────────────────────────┘
+#  │  Syntax: OP rs1, rs2, label                                             │
+#  │                                                                         │
+#  │  BEQ  rs1, rs2, label   jump if rs1 == rs2                              │
+#  │  BNE  rs1, rs2, label   jump if rs1 != rs2                              │
+#  │  BLT  rs1, rs2, label   jump if rs1 <  rs2                              │
+#  │  BGE  rs1, rs2, label   jump if rs1 >= rs2                              │
+#  └─────────────────────────────────────────────────────────────────────────┘
 #
 #  ┌─ J-Type (unconditional jump) ───────────────────────────────────────────┐
-#  │  JAL  rd, label      rd = PC+4, then jump to label (jump & link)         │
-#  │                      Use JAL x0, label for a plain jump (no link)        │
-#  └──────────────────────────────────────────────────────────────────────────┘
+#  │  JAL  rd, label      rd = PC+4, then jump to label (jump & link)        │
+#  │                      Use JAL x0, label for a plain jump (no link)       │
+#  └─────────────────────────────────────────────────────────────────────────┘
 #
 #  ┌─ System ────────────────────────────────────────────────────────────────┐
-#  │  ECALL               print register dump to console                      │
-#  │  HALT                stop the processor                                  │
-#  └──────────────────────────────────────────────────────────────────────────┘
+#  │  ECALL               print register dump to console                     │
+#  │  HALT                stop the processor                                 │
+#  └─────────────────────────────────────────────────────────────────────────┘
 #
 # ───────────────────────────── SYNTAX NOTES ──────────────────────────────────
 #   - Labels: end with colon, e.g.  my_loop:
@@ -83,21 +83,21 @@
 #   - Add 3 NOPs before ECALL to ensure all results are written back
 #
 # ════════════════════════════════════════════════════════════════════════════
-#   YOUR CODE BELOW — edit and re-run Main.java each time!
+#   CODE BELOW 
 # ════════════════════════════════════════════════════════════════════════════
 
 # ---- store array in memory ----
     LI   x10, 100
 
-    LI   x1, 1
+    LI   x1, 12
     SW   x1, 0(x10)
-    LI   x1, 2
+    LI   x1, 5
     SW   x1, 4(x10)
     LI   x1, 34
     SW   x1, 8(x10)
     LI   x1, 3
     SW   x1, 12(x10)
-    LI   x1, 4
+    LI   x1, 45
     SW   x1, 16(x10)
     LI   x1, 5
     SW   x1, 20(x10)
@@ -112,44 +112,51 @@
     LI   x1, 1
     SW   x1, 40(x10)
 
-# ---- initialization ----
-    ADDI x1, x10, 40     # pointer to last element
-    LI   x3, 10          # loop counter
-    LI   x2, 3           # need 3 odd numbers
-    LI   x5, 0           # current odd count
-    LI   x6, 1           # mask for odd check
+# ---- bubble sort initialization ----
+    LI   x11, 11         # array size (n)
 
-loop:
+outer_loop:
+    ADDI x11, x11, -1    # n--
+    BLT  x11, x0, sorted # if n < 0, done
 
-    LW   x7, 0(x1)       # load current value
-    AND  x8, x7, x6      # x8 = value & 1
+    LI   x12, 0          # j = 0
 
-    BEQ  x8, x0, reset_count
+inner_loop:
+    BGE  x12, x11, outer_loop # if j >= n, end inner loop
 
-# ---- odd number case ----
-    ADDI x5, x5, 1
-    BEQ  x5, x2, true
-    JAL  x0, skip
+    # address calculation: addr = x10 + j * 4
+    ADD  x13, x12, x12   # x13 = j * 2
+    ADD  x13, x13, x13   # x13 = j * 4
+    ADD  x13, x13, x10   # addr = offset + base
+    
+    LW   x14, 0(x13)     # a = arr[j]
+    LW   x15, 4(x13)     # b = arr[j+1]
 
-reset_count:
-    LI   x5, 0
+    BGE  x15, x14, no_swap # if b >= a, skip swap
+    
+    # swap
+    SW   x15, 0(x13)
+    SW   x14, 4(x13)
 
-skip:
-    ADDI x3, x3, -1
-    ADDI x1, x1, -4
+no_swap:
+    ADDI x12, x12, 1     # j++
+    JAL  x0, inner_loop
 
-    BLT  x0, x3, loop
+sorted:
+    # Load sorted array into registers to verify in dump
+    LW   x20, 0(x10)
+    LW   x21, 4(x10)
+    LW   x22, 8(x10)
+    LW   x23, 12(x10)
+    LW   x24, 16(x10)
+    LW   x25, 20(x10)
+    LW   x26, 24(x10)
+    LW   x27, 28(x10)
+    LW   x28, 32(x10)
+    LW   x29, 36(x10)
+    LW   x30, 40(x10)
 
-    JAL  x0, false
-
-true:
-    LI   x20, 1          # result = TRUE
-    JAL  x0, end
-
-false:
-    LI   x20, 0          # result = FALSE
-
-end:
+    # NOPs to drain pipeline before dump
     ADDI x0, x0, 0
     ADDI x0, x0, 0
     ADDI x0, x0, 0
