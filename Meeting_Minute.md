@@ -89,3 +89,11 @@
 
 #### Decisions:
 - Fixed bugs related to the Hazard Unit and pipeline flushing.
+
+---
+
+### Date: 30th Mar 2025
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Fixed bugs related to the Hazard Unit and pipeline flushing.
