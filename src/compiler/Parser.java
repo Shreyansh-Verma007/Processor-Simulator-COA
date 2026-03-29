@@ -10,7 +10,7 @@ import java.util.Map;
 // Each line is split into parts (opcode + operands) and converted
 // to the appropriate instruction type (R, I, S, B, J, U).
 public class Parser {
-    private Map<String, Integer> symbols; // label → byte address
+    private Map<String, Integer> symbols;
     private int instrIndex; // current instruction number
 
     public Parser(Map<String, Integer> symbols) {
@@ -64,7 +64,6 @@ public class Parser {
         String op = p[0].toUpperCase();
         int pc = idx * 4; // byte address of this instruction
 
-        // --- R-Type: op rd, rs1, rs2 ---
         if (op.equals("ADD"))
             return Instruction.rType(Opcode.ADD, reg(p[1]), reg(p[2]), reg(p[3]));
         if (op.equals("SUB"))
@@ -84,18 +83,12 @@ public class Parser {
         if (op.equals("AND"))
             return Instruction.rType(Opcode.AND, reg(p[1]), reg(p[2]), reg(p[3]));
 
-        // --- I-Type: op rd, rs1, imm ---
         if (op.equals("ADDI"))
             return Instruction.iType(Opcode.ADDI, reg(p[1]), reg(p[2]), imm(p[3], pc));
 
-        if (op.equals("LI")) {
-            // LI can be "LI x1, 10" (2 operands) or "LI x1, x0, 10" (3 operands)
-            if (p.length == 3) {
-                return Instruction.iType(Opcode.LI, reg(p[1]), 0, imm(p[2], pc));
-            } else {
-                return Instruction.iType(Opcode.LI, reg(p[1]), reg(p[2]), imm(p[3], pc));
-            }
-        }
+        // LI rd, imm — load immediate (pseudo-instruction, 2 operands only)
+        if (op.equals("LI"))
+            return Instruction.iType(Opcode.LI, reg(p[1]), 0, immAbsolute(p[2]));
 
         // LW/LB: "LW x1, 0(x2)" or "LW x1, x2, imm"
         if (op.equals("LW")) {
@@ -149,9 +142,9 @@ public class Parser {
 
         // --- U-Type: system instructions ---
         if (op.equals("ECALL"))
-            return Instruction.uType(Opcode.ECALL, 0, "");
+            return Instruction.uType(Opcode.ECALL, 0);
         if (op.equals("HALT"))
-            return Instruction.uType(Opcode.HALT, 0, "");
+            return Instruction.uType(Opcode.HALT, 0);
 
         throw new RuntimeException("Unknown instruction: " + op);
     }
@@ -177,6 +170,19 @@ public class Parser {
             if (addr == null)
                 throw new RuntimeException("Undefined label: " + s);
             return addr - pc; // relative offset
+        }
+        return Integer.parseInt(s);
+    }
+
+    // Parse immediate as absolute value (no PC-relative offset)
+    // Used by LI where labels should resolve to absolute addresses
+    private int immAbsolute(String s) {
+        s = s.trim();
+        if (isLabel(s)) {
+            Integer addr = symbols.get(s);
+            if (addr == null)
+                throw new RuntimeException("Undefined label: " + s);
+            return addr; // absolute address, not relative
         }
         return Integer.parseInt(s);
     }
