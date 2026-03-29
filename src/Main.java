@@ -35,7 +35,7 @@ public class Main {
                     fileOut.write(b, off, len);
                 }
 
-                public void flush() throws IOException {
+                    public void flush() throws IOException {
                     originalOut.flush();
                     fileOut.flush();
                 }

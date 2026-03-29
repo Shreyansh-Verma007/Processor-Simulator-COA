@@ -25,7 +25,7 @@ public class PipelineController {
 
         IF_Stage ifStage = new IF_Stage();
         ID_Stage idStage = new ID_Stage();
-        EX_Stage exStage = new EX_Stage(rf);
+        EX_Stage exStage = new EX_Stage(rf, cfg);
         MEM_Stage memStage = new MEM_Stage();
         WB_Stage wbStage = new WB_Stage();
 
@@ -38,7 +38,7 @@ public class PipelineController {
         // Simulation loop
         while (true) {
 
-            boolean stall = hazard.needsStall(idEx, ifId);
+            boolean stall = hazard.needsStall(idEx, ifId, exMem, cfg);
             boolean isMultiCycleStall = (idEx.latencyCyclesLeft > 0);
 
             MEM_WB oldMemWb = memWb;
@@ -51,22 +51,25 @@ public class PipelineController {
             memWb = newMemWb;
             exMem = newExMem;
 
-            if (stall) {
+            // Check if the instruction just processed by EX is a taken branch.
+            // This must be checked regardless of stall state, because the branch
+            // was resolved during this cycle's EX tick.
+            if (!newExMem.isNop && newExMem.branchTaken) {
+                // Branch was taken — flush and redirect
+                pc = newExMem.jumpTarget;
+                ifId = new IF_ID();
+                idEx = new ID_EX();
+                stats.branchFlushes++;
+                if (stall) stats.stalls++; // the stall cycle still counts
+            } else if (stall) {
                 if (!isMultiCycleStall) {
                     idEx = new ID_EX();
                 }
                 stats.stalls++;
             } else {
-                if (!exMem.isNop && exMem.branchTaken) {
-                    pc = exMem.jumpTarget;
-                    ifId = new IF_ID();
-                    idEx = new ID_EX();
-                    stats.branchFlushes++;
-                } else {
-                    idEx = idStage.tick(ifId, rf, cfg);
-                    ifId = ifStage.tick(program, pc);
-                    pc += 4;
-                }
+                idEx = idStage.tick(ifId, rf, cfg);
+                ifId = ifStage.tick(program, pc);
+                pc += 4;
             }
 
             stats.cycles++;
@@ -75,6 +78,12 @@ public class PipelineController {
                 drainCycles++;
                 if (drainCycles >= 3)
                     break;
+            }
+
+            // Natural program end: all instructions have drained through the pipeline
+            boolean pcPastEnd = (pc / 4) >= program.size();
+            if (pcPastEnd && ifId.isNop && idEx.isNop && exMem.isNop && memWb.isNop) {
+                break;
             }
 
             // Safety limit to prevent infinite loops

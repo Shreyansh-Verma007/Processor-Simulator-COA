@@ -23,10 +23,8 @@ public class MEM_Stage {
             out.result = mem.readByte(exMem.aluResult);
         } else if (op == Opcode.SW) {
             mem.writeWord(exMem.aluResult, exMem.writeData);
-            out.isNop = true;
         } else if (op == Opcode.SB) {
             mem.writeByte(exMem.aluResult, exMem.writeData);
-            out.isNop = true;
         } else {
             out.result = exMem.aluResult;
         }

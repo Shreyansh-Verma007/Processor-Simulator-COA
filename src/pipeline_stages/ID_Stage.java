@@ -27,6 +27,8 @@ public class ID_Stage {
         // Multi-cycle ops (e.g., MUL, DIV)
         int latency = cfg.getLatency(instr.opcode());
         out.latencyCyclesLeft = latency > 1 ? latency - 1 : 0;
+
         return out;
     }
+
 }

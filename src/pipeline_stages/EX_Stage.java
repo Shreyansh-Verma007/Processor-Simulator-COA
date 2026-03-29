@@ -1,5 +1,6 @@
 package pipeline_stages;
 
+import common.Config;
 import common.Opcode;
 import core.RegisterFile;
 import hazard.ForwardResult;
@@ -12,9 +13,11 @@ import pipeline_registers.MEM_WB;
 public class EX_Stage {
     public boolean haltFlag = false; // set to true when ECALL/HALT is seen
     private RegisterFile rf; // reference to register file for re-reads after stalls
+    private Config cfg;
 
-    public EX_Stage(RegisterFile rf) {
+    public EX_Stage(RegisterFile rf, Config cfg) {
         this.rf = rf;
+        this.cfg = cfg;
     }
 
     public EX_MEM tick(ID_EX idEx, EX_MEM prevExMem,
@@ -24,10 +27,16 @@ public class EX_Stage {
         if (idEx.isNop)
             return out; // nothing to execute
 
-        int a = resolveOperandA(idEx, prevExMem, newMemWb, oldMemWb, fu);
+        int a, b;
+        if (cfg.isForwardingEnabled()) {
+            a = resolveOperandA(idEx, prevExMem, newMemWb, oldMemWb, fu);
+            b = resolveOperandB(idEx, prevExMem, newMemWb, oldMemWb, fu);
+        } else {
+            // No forwarding — read from register file (stalls ensure correctness)
+            a = rf.read(idEx.rs1);
+            b = rf.read(idEx.rs2);
+        }
         idEx.valA = a;
-
-        int b = resolveOperandB(idEx, prevExMem, newMemWb, oldMemWb, fu);
         idEx.valB = b;
 
         // === Multi-cycle instruction still counting down ===
@@ -49,9 +58,11 @@ public class EX_Stage {
             out.aluResult = idEx.pc + 4; // return address
         }
 
-        if (idEx.opcode == Opcode.ECALL || idEx.opcode == Opcode.HALT) {
-            if (idEx.opcode == Opcode.ECALL)
-                rf.dump();
+        if (idEx.opcode == Opcode.ECALL) {
+            rf.dump();
+        }
+
+        if (idEx.opcode == Opcode.HALT) {
             haltFlag = true;
         }
 
