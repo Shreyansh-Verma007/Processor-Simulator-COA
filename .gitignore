@@ -1,6 +1,9 @@
+### Compiled class files ###
+*.class
+
+### IntelliJ IDEA ###
 .idea/
 *.iml
-### IntelliJ IDEA ###
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
@@ -31,4 +34,14 @@ bin/
 ### Mac OS ###
 .DS_Store
 
-.iml
+### Build output ###
+out_test/
+lint_out/
+tmp_compile/
+tmp_compile2/
+
+### Generated runtime output ###
+console.txt
+output.txt
+test_results.txt
+tmp_sources.txt
