@@ -10,16 +10,11 @@ import java.util.Map;
 // Each line is split into parts (opcode + operands) and converted
 // to the appropriate instruction type (R, I, S, B, J, U).
 public class Parser {
-    private Map<String, Integer> symbols;
+    private final Map<String, Integer> symbols;
     private int instrIndex; // current instruction number
 
     public Parser(Map<String, Integer> symbols) {
         this.symbols = symbols;
-        this.instrIndex = 0;
-    }
-
-    public Parser() {
-        this.symbols = new java.util.HashMap<>();
         this.instrIndex = 0;
     }
 
@@ -142,9 +137,9 @@ public class Parser {
 
         // --- U-Type: system instructions ---
         if (op.equals("ECALL"))
-            return Instruction.uType(Opcode.ECALL, 0);
+            return Instruction.uType(Opcode.ECALL);
         if (op.equals("HALT"))
-            return Instruction.uType(Opcode.HALT, 0);
+            return Instruction.uType(Opcode.HALT);
 
         throw new RuntimeException("Unknown instruction: " + op);
     }

@@ -32,7 +32,7 @@ public record Instruction(
     }
 
     // U-type (system: ECALL, HALT)
-    public static Instruction uType(Opcode op, int rd) {
-        return new Instruction(op, rd, 0, 0, 0);
+    public static Instruction uType(Opcode op) {
+        return new Instruction(op, 0, 0, 0, 0);
     }
 }
