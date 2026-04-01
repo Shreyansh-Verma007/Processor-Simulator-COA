@@ -11,6 +11,7 @@ import java.io.PrintStream;
 public class Main {
     public static void main(String[] args) throws Exception {
         String asmPath = (args.length > 0) ? args[0] : "input.asm";
+
         String cacheCfgPath = (args.length > 1) ? args[1] : null;
 
         // Build configuration

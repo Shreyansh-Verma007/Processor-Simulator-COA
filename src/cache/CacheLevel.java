@@ -38,15 +38,15 @@ public class CacheLevel {
     // ── Address decomposition ────────────────────────────────────────────
 
     private int getBlockOffset(int address) {
-        return (address / 4) % blockSizeWords;
+        return Math.floorMod(address / 4, blockSizeWords);
     }
 
     private int getSetIndex(int address) {
-        return (address / config.blockSize) % numSets;
+        return Math.floorMod(Integer.divideUnsigned(address, config.blockSize), numSets);
     }
 
     private int getTag(int address) {
-        return address / (config.blockSize * numSets);
+        return Integer.divideUnsigned(address, config.blockSize * numSets);
     }
 
     // ── Lookup ───────────────────────────────────────────────────────────

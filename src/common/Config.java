@@ -57,6 +57,13 @@ public class Config {
         // U-Type
         latencies.put(Opcode.ECALL, 1);
         latencies.put(Opcode.HALT, 1);
+
+        // Setup default cache hierarchy
+        ReplacementPolicy policy = ReplacementPolicy.LRU;
+        this.l1i = new CacheConfig(1024, 64, 2, 1, policy);
+        this.l1d = new CacheConfig(1024, 64, 2, 1, policy);
+        this.l2 = new CacheConfig(8192, 64, 4, 4, policy);
+        this.mainMemoryLatency = 100;
     }
 
     // Returns how many cycles an instruction takes. Defaults to 1 if not found.

@@ -33,16 +33,22 @@ public class InstructionEncoder {
         int rs2 = (word >>> 12) & 0x1F;
         int imm = word & 0xFFF;
 
-        // Sign-extend the 12-bit immediate
-        if ((imm & 0x800) != 0) {
-            imm |= 0xFFFFF000;
-        }
-
         Opcode[] opcodes = Opcode.values();
         if (opcodeIdx >= opcodes.length) {
             return null; // invalid opcode — treat as NOP
         }
 
-        return new Instruction(opcodes[opcodeIdx], rd, rs1, rs2, imm);
+        Opcode op = opcodes[opcodeIdx];
+
+        // Sign-extend immediate only for instructions that use PC-relative offsets
+        // (branches and ADDI). Load/store/LI use unsigned addresses/offsets (0–4095).
+        if (op == Opcode.BEQ || op == Opcode.BNE || op == Opcode.BLT
+                || op == Opcode.BGE || op == Opcode.ADDI || op == Opcode.JAL) {
+            if ((imm & 0x800) != 0) {
+                imm |= 0xFFFFF000;
+            }
+        }
+
+        return new Instruction(op, rd, rs1, rs2, imm);
     }
 }
