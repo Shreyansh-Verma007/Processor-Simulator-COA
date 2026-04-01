@@ -2,7 +2,7 @@ package core;
 
 // 32 integer registers. x0 is hardwired to 0.
 public class RegisterFile {
-    private int[] regs = new int[32];
+    private final int[] regs = new int[32];
 
     public RegisterFile() {
         regs[2] = 0x0FFF; // Initialize SP at top of memory
