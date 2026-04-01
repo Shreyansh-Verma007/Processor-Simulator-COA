@@ -96,4 +96,23 @@
 **Members:** Suhail Sahib, Shreyansh Verma
 
 #### Decisions:
-- Fixed bugs related to the Hazard Unit and pipeline flushing.
+- Fixed all the issues with total number of stalls and cycles related with load use hazards. 
+
+---
+
+### Date: 31st Mar 2025
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Implemented the cache hierarchy with L1I, L1D, L2 caches and main memory.
+- Added support for different cache replacement policies (LRU and FIFO).
+- Fixed bugs related to cache coherence and write-back policy.
+
+---
+
+### Date: 1st Apr 2025
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Wired the cache hierarchy with the 5-stage pipeline.
+- Added support for .data segment in the assembler.
