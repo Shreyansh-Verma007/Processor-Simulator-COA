@@ -45,14 +45,12 @@ public class Stats {
         System.out.println("Instructions Retired: " + instructionsRetired);
         System.out.printf("IPC                : %.3f%n", getIPC());
 
-        if (l1iHits + l1iMisses > 0) {
-            System.out.println("\n--- Cache Statistics ---");
-            System.out.printf("L1I  : %d hits, %d misses, miss rate %.3f%n",
-                    l1iHits, l1iMisses, getMissRate(l1iHits, l1iMisses));
-            System.out.printf("L1D  : %d hits, %d misses, miss rate %.3f%n",
-                    l1dHits, l1dMisses, getMissRate(l1dHits, l1dMisses));
-            System.out.printf("L2   : %d hits, %d misses, miss rate %.3f%n",
-                    l2Hits, l2Misses, getMissRate(l2Hits, l2Misses));
-        }
+        System.out.println("\n--- Cache Statistics ---");
+        System.out.printf("L1I  : %d hits, %d misses, miss rate %.3f%n",
+                l1iHits, l1iMisses, getMissRate(l1iHits, l1iMisses));
+        System.out.printf("L1D  : %d hits, %d misses, miss rate %.3f%n",
+                l1dHits, l1dMisses, getMissRate(l1dHits, l1dMisses));
+        System.out.printf("L2   : %d hits, %d misses, miss rate %.3f%n",
+                l2Hits, l2Misses, getMissRate(l2Hits, l2Misses));
     }
 }

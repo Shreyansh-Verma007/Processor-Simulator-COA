@@ -49,15 +49,13 @@ public class Main {
 
             // Cache stats (if cache was configured)
             core.Stats s = processor.getStats();
-            if (s.l1iHits + s.l1iMisses > 0) {
-                statsOut.println("\n--- Cache Statistics ---");
-                statsOut.printf("L1I  : %d hits, %d misses, miss rate %.3f%n",
-                        s.l1iHits, s.l1iMisses, s.getMissRate(s.l1iHits, s.l1iMisses));
-                statsOut.printf("L1D  : %d hits, %d misses, miss rate %.3f%n",
-                        s.l1dHits, s.l1dMisses, s.getMissRate(s.l1dHits, s.l1dMisses));
-                statsOut.printf("L2   : %d hits, %d misses, miss rate %.3f%n",
-                        s.l2Hits, s.l2Misses, s.getMissRate(s.l2Hits, s.l2Misses));
-            }
+            statsOut.println("\n--- Cache Statistics ---");
+            statsOut.printf("L1I  : %d hits, %d misses, miss rate %.3f%n",
+                    s.l1iHits, s.l1iMisses, s.getMissRate(s.l1iHits, s.l1iMisses));
+            statsOut.printf("L1D  : %d hits, %d misses, miss rate %.3f%n",
+                    s.l1dHits, s.l1dMisses, s.getMissRate(s.l1dHits, s.l1dMisses));
+            statsOut.printf("L2   : %d hits, %d misses, miss rate %.3f%n",
+                    s.l2Hits, s.l2Misses, s.getMissRate(s.l2Hits, s.l2Misses));
         }
     }
 }
