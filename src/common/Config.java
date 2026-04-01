@@ -96,6 +96,16 @@ public class Config {
     }
 
     /**
+     * Programmatically enable cache components.
+     */
+    public void enableCache(CacheConfig l1i, CacheConfig l1d, CacheConfig l2, int mainMemoryLatency) {
+        this.l1i = l1i;
+        this.l1d = l1d;
+        this.l2 = l2;
+        this.mainMemoryLatency = mainMemoryLatency;
+    }
+
+    /**
      * Load cache configuration from a key=value text file.
      * Keys: L1I_SIZE, L1I_BLOCK_SIZE, L1I_ASSOCIATIVITY, L1I_LATENCY,
      * L1D_SIZE, L1D_BLOCK_SIZE, L1D_ASSOCIATIVITY, L1D_LATENCY,

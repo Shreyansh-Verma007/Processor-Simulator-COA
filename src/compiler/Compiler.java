@@ -18,7 +18,7 @@ import java.util.Map;
 public class Compiler {
 
     public static final int TEXT_BASE = 0x00000;
-    public static final int DATA_BASE = 0x10000; // 64 KB offset
+    public static final int DATA_BASE = 0x0400; // 1 KB offset
 
     public CompilationResult compile(String path) throws IOException {
         Lexer lexer = new Lexer();
