@@ -1,30 +1,56 @@
 package core;
 
+import cache.CacheHierarchy;
 import common.Config;
 import common.Instruction;
+import compiler.CompilationResult;
 import pipeline_stages.PipelineController;
 
 import java.util.List;
 
 // Top-level simulator controller.
 public class Processor {
-    private Memory mem = new Memory();
-    private RegisterFile rf = new RegisterFile();
-    private Config cfg = new Config();
-    private Stats stats = new Stats();
+    private final Memory mem;
+    private final RegisterFile rf;
+    private final Config cfg;
+    private final Stats stats;
+    private CacheHierarchy cache;
 
-    public void run(List<Instruction> program) {
-        new PipelineController().run(program, mem, rf, cfg, stats);
+    public Processor() {
+        this(new Config());
     }
 
-    // --- Accessors (used by test runner to check results after execution) ---
+    public Processor(Config cfg) {
+        this.mem = new Memory();
+        this.rf = new RegisterFile();
+        this.cfg = cfg;
+        this.stats = new Stats();
+
+        // Build cache hierarchy if configured
+        if (cfg.hasCacheConfig()) {
+            this.cache = new CacheHierarchy(
+                    cfg.getL1I(), cfg.getL1D(), cfg.getL2(),
+                    cfg.getMainMemoryLatency(), mem);
+        }
+    }
+
+    /** Run from a CompilationResult — loads .data items into memory first. */
+    public void run(CompilationResult result) {
+        if (result.getDataItems() != null && !result.getDataItems().isEmpty()) {
+            mem.loadDataItems(result.getDataItems());
+        }
+        run(result.getInstructions());
+    }
+
+    /** Run from a plain instruction list (used by TestSuite). */
+    public void run(List<Instruction> program) {
+        new PipelineController().run(program, mem, rf, cfg, stats, cache);
+    }
+
+    // --- Accessors ---
 
     public int getRegister(int n) {
         return rf.read(n);
-    }
-
-    public int getMemory(int address) {
-        return mem.readWord(address);
     }
 
     public Stats getStats() {
@@ -33,9 +59,5 @@ public class Processor {
 
     public void preload(int address, int[] values) {
         mem.preload(address, values);
-    }
-
-    public void dumpMemory(int address, int count) {
-        mem.dump(address, count);
     }
 }

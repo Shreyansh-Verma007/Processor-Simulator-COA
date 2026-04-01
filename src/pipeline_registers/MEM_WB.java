@@ -9,4 +9,5 @@ public class MEM_WB {
     public int rd = 0;
     public int result = 0;
     public boolean isNop = true;
+    public int memLatencyLeft = 0; // remaining cycles for cache miss stall
 }

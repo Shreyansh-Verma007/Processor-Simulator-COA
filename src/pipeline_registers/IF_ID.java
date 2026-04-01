@@ -8,4 +8,5 @@ public class IF_ID {
     public Instruction instruction = null;
     public int pc = 0;
     public boolean isNop = true;
+    public int fetchLatencyLeft = 0; // remaining cycles for cache miss stall
 }
