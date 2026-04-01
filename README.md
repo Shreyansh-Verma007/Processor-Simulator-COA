@@ -1,15 +1,15 @@
 # 🚀 RISC-V Pipeline Simulator
 
-**Phase 1 – Cycle-Accurate 5-Stage Implementation**
+**Phase 2 – Cache & Pipeline Integration**
 
 A modular, cycle-accurate 5-stage in-order RISC-V pipeline simulator written in Java.  
-Designed with clean architectural separation between compilation, core processor, pipeline stages, and hazard resolution logic.
+Designed with clean architectural separation between compilation, core processor, pipeline stages, hazard resolution logic, and variable-latency cache hierarchy.
 
 ---
 
 ## 🧠 Architectural Overview
 
-This simulator models a classic **5-stage RISC-V pipeline**:
+This simulator models a classic **5-stage RISC-V pipeline** featuring **BTFNT Branch Prediction** and a complete **Two-Level Set-Associative Cache Hierarchy**:
 
 ```
 IF → ID → EX → MEM → WB
@@ -29,8 +29,9 @@ The system is structured around a central **Processor** and a **PipelineControll
 | `ForwardingUnit` | Resolves data dependencies dynamically |
 | `ForwardResult` | Encapsulates forwarding decisions |
 | `RegisterFile` | 32-register architectural state |
-| `Memory` | Unified instruction + data memory |
-| `Stats` | Collects performance metrics |
+| `CacheHierarchy` | L1I, L1D, and unified L2 cache controllers |
+| `Memory` | 128KB memory (.text at `0x0000`, .data at `0x0400`) |
+| `Stats` | Collects performance and cache metrics |
 
 ---
 
@@ -136,12 +137,11 @@ Forwarding can be toggled via configuration.
 
 ### 🔹 Control Hazards
 
-- Branches resolved in EX stage
-- Flush-on-taken strategy
-- `PipelineController` triggers:
-  - `shouldFlush()`
-  - PC redirection
-  - Bubble insertion
+- Static **BTFNT (Backward-Taken, Forward-Not-Taken)** Branch Prediction implemented.
+- Branches resolved completely in EX stage.
+- Misprediction recovery:
+  - Flush-on-mispredict strategy (squashes fetched/decoded instructions).
+  - `PipelineController` triggers PC redirection and dynamically handles bubbles automatically.
 
 ---
 
@@ -169,8 +169,9 @@ Produces:
 |------|-------------|
 | 🧮 Arithmetic | `ADD`, `SUB`, `MUL`, `DIV`, `ADDI`, `LI`, `AND`, `OR`, `XOR`, `SLL`, `SRL` |
 | 💾 Memory | `LW`, `LB`, `SW`, `SB` |
-| 🌿 Branch | `BEQ`, `BNE`, `BLT`, `BGE` |
+| 🌿 Branch | `BEQ`, `BNE`, `BLT`, `BGE` (with BTFNT static prediction) |
 | 🔀 Jump | `JAL` |
+| 🏷️ Pseudo | `LI`, `LA`, `MV`, `NOP` |
 | 🛑 System | `ECALL`, `HALT` |
 
 ---
@@ -568,23 +569,23 @@ classDiagram
 ### 🔨 Compile
 Compile all source files into the `bin` directory:
 
-```powershell
-javac -d bin src/**/*.java
+```bash
+javac -d bin src/common/*.java src/core/*.java src/compiler/*.java src/hazard/*.java src/pipeline_registers/*.java src/pipeline_stages/*.java src/cache/*.java src/Main.java
 ```
 
 ### 🏃 Run
 Execute the simulator using the `Main` entry point:
 
-```powershell
-# Run with default input.asm
-java -cp bin Main
+```bash
+# Run with default input.asm (Direct Memory Access)
+java -cp bin Main input.asm
 
-# Or specify a custom assembly file
-java -cp bin Main program.asm
+# Run with Cache Configuration
+java -cp bin Main input.asm cache_config.txt
 ```
 
 > [!TIP]
-> After running, check `console.txt` for detailed cycle logs and `output.txt` for performance metrics.
+> After running, check `console.txt` for detailed cycle/stage logs and `output.txt` for performance metrics (IPC/Stalls/Cache Hits).
 
 ---
 
@@ -606,12 +607,10 @@ This simulator emphasizes:
 - Dynamic scheduling
 - Register renaming
 - Reorder Buffer (ROB)
-- Branch prediction
-- Cache simulation
-- Multi-cycle functional units
+- Multi-cycle ALU functional units
 
 ---
 
-### RISC-V Pipeline Simulator – Phase 1
+### RISC-V Pipeline Simulator – Phase 2
 
-**Cycle Accurate • Modular • Architecturally Faithful**
+**Cycle Accurate • Set-Associative Cache • BTFNT Predicted • Functional**
