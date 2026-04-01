@@ -67,9 +67,4 @@ public class HazardUnit {
     private boolean isLoad(Opcode op) {
         return op == Opcode.LW || op == Opcode.LB;
     }
-
-    private boolean isBranch(Opcode op) {
-        return op == Opcode.BEQ || op == Opcode.BNE
-                || op == Opcode.BLT || op == Opcode.BGE;
-    }
 }
