@@ -1,7 +1,6 @@
 package hazard;
 
 import common.Config;
-import common.Opcode;
 import pipeline_registers.EX_MEM;
 import pipeline_registers.ID_EX;
 import pipeline_registers.IF_ID;
@@ -24,7 +23,7 @@ public class HazardUnit {
         if (!idEx.isNop) {
             // Case 2: Load-use hazard (always stall, even with forwarding)
             // The instruction in EX is a load, and the instruction in ID needs the result
-            if (isLoad(idEx.opcode)) {
+            if (idEx.opcode.isLoad()) {
                 if (idEx.rd != 0 && (idEx.rd == incomingRs1 || idEx.rd == incomingRs2)) {
                     return true;
                 }
@@ -32,7 +31,7 @@ public class HazardUnit {
 
             // Case 3: No-forwarding RAW hazard — producer in EX (ID/EX)
             if (!cfg.isForwardingEnabled()) {
-                if (idEx.rd != 0 && writesBack(idEx.opcode)) {
+                if (idEx.rd != 0 && idEx.opcode.writesBack()) {
                     if (idEx.rd == incomingRs1 || idEx.rd == incomingRs2) {
                         return true;
                     }
@@ -45,7 +44,7 @@ public class HazardUnit {
         // because the producer may have advanced from EX to MEM and still hasn't
         // written back to the register file yet.
         if (!cfg.isForwardingEnabled()) {
-            if (!exMem.isNop && exMem.rd != 0 && writesBack(exMem.opcode)) {
+            if (!exMem.isNop && exMem.rd != 0 && exMem.opcode.writesBack()) {
                 if (exMem.rd == incomingRs1 || exMem.rd == incomingRs2) {
                     return true;
                 }
@@ -55,16 +54,4 @@ public class HazardUnit {
         return false;
     }
 
-    private boolean writesBack(Opcode op) {
-        if (op == null)
-            return false;
-        return op != Opcode.SW && op != Opcode.SB
-                && op != Opcode.BEQ && op != Opcode.BNE
-                && op != Opcode.BLT && op != Opcode.BGE
-                && op != Opcode.ECALL && op != Opcode.HALT;
-    }
-
-    private boolean isLoad(Opcode op) {
-        return op == Opcode.LW || op == Opcode.LB;
-    }
 }

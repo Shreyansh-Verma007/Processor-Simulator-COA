@@ -42,8 +42,7 @@ public class InstructionEncoder {
 
         // Sign-extend immediate only for instructions that use PC-relative offsets
         // (branches and ADDI). Load/store/LI use unsigned addresses/offsets (0–4095).
-        if (op == Opcode.BEQ || op == Opcode.BNE || op == Opcode.BLT
-                || op == Opcode.BGE || op == Opcode.ADDI || op == Opcode.JAL) {
+        if (op.isBranch() || op == Opcode.ADDI || op == Opcode.JAL) {
             if ((imm & 0x800) != 0) {
                 imm |= 0xFFFFF000;
             }

@@ -2,7 +2,6 @@ package pipeline_stages;
 
 import common.Config;
 import common.Instruction;
-import common.Opcode;
 import core.RegisterFile;
 import pipeline_registers.ID_EX;
 import pipeline_registers.IF_ID;
@@ -39,16 +38,11 @@ public class ID_Stage {
         out.latencyCyclesLeft = (latency > 1) ? latency - 1 : 0;
 
         // BTFNT: predict backward branches as taken
-        if (isBranch(out.opcode) && out.immediate < 0) {
+        if (out.opcode.isBranch() && out.immediate < 0) {
             out.branchPredictedTaken = true;
             out.predictedPC = out.pc + out.immediate;
         }
 
         return out;
-    }
-
-    private boolean isBranch(Opcode op) {
-        return op == Opcode.BEQ || op == Opcode.BNE
-                || op == Opcode.BLT || op == Opcode.BGE;
     }
 }

@@ -36,5 +36,23 @@ public enum Opcode {
 
     // U-Type: system/control
     ECALL, // system call — dumps registers to console
-    HALT // stop execution
+    HALT; // stop execution
+
+    // ── Utility Methods ──────────────────────────────────────────────────
+
+    public boolean isBranch() {
+        return this == BEQ || this == BNE || this == BLT || this == BGE;
+    }
+
+    public boolean isLoad() {
+        return this == LW || this == LB;
+    }
+
+    public boolean isStore() {
+        return this == SW || this == SB;
+    }
+
+    public boolean writesBack() {
+        return !isStore() && !isBranch() && this != ECALL && this != HALT;
+    }
 }

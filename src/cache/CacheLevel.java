@@ -56,19 +56,7 @@ public class CacheLevel {
      * Returns the CacheLine on hit (and updates LRU timestamp), or null on miss.
      */
     public CacheLine lookup(int address) {
-        int set = getSetIndex(address);
-        int tag = getTag(address);
-
-        for (int w = 0; w < config.associativity; w++) {
-            CacheLine line = sets[set][w];
-            if (line.valid && line.tag == tag) {
-                hits++;
-                line.lastUsed = clock++;
-                return line;
-            }
-        }
-        misses++;
-        return null;
+        return findLine(address, true);
     }
 
     /**
@@ -93,6 +81,57 @@ public class CacheLevel {
         line.data[getBlockOffset(address)] = value;
         line.dirty = true;
         return true;
+    }
+
+    // ── Internal methods (no stats) — for block fills and write-backs ───
+
+    /**
+     * Look up an address without updating hit/miss counters.
+     * Used internally by CacheHierarchy for block fills and write-backs.
+     */
+    CacheLine lookupNoStats(int address) {
+        return findLine(address, false);
+    }
+
+    private CacheLine findLine(int address, boolean updateStats) {
+        int set = getSetIndex(address);
+        int tag = getTag(address);
+
+        for (int w = 0; w < config.associativity; w++) {
+            CacheLine line = sets[set][w];
+            if (line.valid && line.tag == tag) {
+                if (updateStats)
+                    hits++;
+                line.lastUsed = clock++;
+                return line;
+            }
+        }
+        if (updateStats)
+            misses++;
+        return null;
+    }
+
+    /** Read a word without counting stats. */
+    Integer readWordNoStats(int address) {
+        CacheLine line = lookupNoStats(address);
+        if (line == null)
+            return null;
+        return line.data[getBlockOffset(address)];
+    }
+
+    /** Write a word without counting stats (write-back). */
+    boolean writeWordNoStats(int address, int value) {
+        CacheLine line = lookupNoStats(address);
+        if (line == null)
+            return false;
+        line.data[getBlockOffset(address)] = value;
+        line.dirty = true;
+        return true;
+    }
+
+    /** Check if a block is present without affecting stats. */
+    boolean containsBlock(int address) {
+        return lookupNoStats(address) != null;
     }
 
     // ── Insertion / Eviction ─────────────────────────────────────────────

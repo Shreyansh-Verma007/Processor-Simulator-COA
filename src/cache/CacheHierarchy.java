@@ -10,6 +10,10 @@ import core.Memory;
  * On a miss at any level, the block is fetched from the next level,
  * and the total access latency is the sum of all levels traversed.
  * Uses write-back: dirty evictions propagate down the hierarchy.
+ *
+ * Stats policy: each pipeline request counts as exactly ONE L1 access
+ * (hit or miss). If L1 misses, exactly ONE L2 access is counted.
+ * Internal block fills and write-backs use no-stats methods.
  */
 public class CacheHierarchy {
 
@@ -30,25 +34,19 @@ public class CacheHierarchy {
 
     // ── Instruction fetch (IF stage) ─────────────────────────────────────
 
-    /**
-     * Fetch a single instruction word through L1I → L2 → Memory.
-     */
+    /** Fetch a single instruction word through L1I → L2 → Memory. */
     public AccessResult fetchInstruction(int address) {
         return readThrough(l1i, address);
     }
 
     // ── Data access (MEM stage) ──────────────────────────────────────────
 
-    /**
-     * Read a word of data through L1D → L2 → Memory.
-     */
+    /** Read a word of data through L1D → L2 → Memory. */
     public AccessResult readData(int address) {
         return readThrough(l1d, address);
     }
 
-    /**
-     * Read a byte of data through L1D → L2 → Memory.
-     */
+    /** Read a byte of data through L1D → L2 → Memory. */
     public AccessResult readDataByte(int address) {
         AccessResult wordResult = readThrough(l1d, (address / 4) * 4);
         int word = wordResult.data;
@@ -57,49 +55,53 @@ public class CacheHierarchy {
         return new AccessResult(byteVal, wordResult.latencyCycles);
     }
 
-    /**
-     * Write a word of data through L1D → L2 → Memory (write-allocate).
-     */
+    /** Write a word of data through L1D → L2 → Memory (write-allocate). */
     public AccessResult writeData(int address, int value) {
-        int latency = 0;
+        // Single L1D lookup for stats
+        CacheLine line = l1d.lookup(address);
 
-        // Try L1D hit
-        if (l1d.writeWord(address, value)) {
+        if (line != null) {
+            // L1D hit — write directly
+            int offset = getBlockOffset(l1d, address);
+            line.data[offset] = value;
+            line.dirty = true;
             return new AccessResult(0, l1d.getConfig().latency);
         }
 
-        // L1D miss — need to load the block first (write-allocate)
-        latency += l1d.getConfig().latency;
-        fetchBlockToL1(l1d, address);
-        latency += getL2MemLatency(address);
+        // L1D miss — fetch block (write-allocate), then write
+        int latency = l1d.getConfig().latency;
+        FetchResult fetch = fetchBlockToL1(l1d, address);
+        latency += fetch.latency;
 
-        // Now write into L1D
-        l1d.writeWord(address, value);
+        // Write into the now-loaded L1D block (no stats)
+        l1d.writeWordNoStats(address, value);
         return new AccessResult(0, latency);
     }
 
-    /**
-     * Write a byte of data through L1D → L2 → Memory (write-allocate).
-     */
+    /** Write a byte of data through L1D → L2 → Memory (write-allocate). */
     public AccessResult writeDataByte(int address, int value) {
         int wordAddress = (address / 4) * 4;
-        int latency = 0;
 
-        // Ensure the block is in L1D
-        Integer existing = l1d.readWord(wordAddress);
-        if (existing == null) {
-            latency += l1d.getConfig().latency;
-            fetchBlockToL1(l1d, wordAddress);
-            latency += getL2MemLatency(wordAddress);
+        // Single L1D lookup for stats
+        CacheLine line = l1d.lookup(wordAddress);
+        int latency;
+
+        if (line == null) {
+            // L1D miss — fetch block first
+            latency = l1d.getConfig().latency;
+            FetchResult fetch = fetchBlockToL1(l1d, wordAddress);
+            latency += fetch.latency;
         } else {
-            latency += l1d.getConfig().latency;
+            latency = l1d.getConfig().latency;
         }
 
-        // Read the current word, modify the byte, write back
-        int word = l1d.readWord(wordAddress);
+        // Read-modify-write the byte (no stats — block is guaranteed present)
+        Integer word = l1d.readWordNoStats(wordAddress);
+        if (word == null)
+            word = 0;
         int bytePos = (address % 4) * 8;
         word = (word & ~(0xFF << bytePos)) | ((value & 0xFF) << bytePos);
-        l1d.writeWord(wordAddress, word);
+        l1d.writeWordNoStats(wordAddress, word);
 
         return new AccessResult(0, latency);
     }
@@ -109,49 +111,53 @@ public class CacheHierarchy {
     private AccessResult readThrough(CacheLevel l1, int address) {
         int latency = l1.getConfig().latency;
 
-        // L1 hit?
+        // Single L1 lookup — this is the ONLY stat-counted L1 access
         Integer val = l1.readWord(address);
         if (val != null) {
             return new AccessResult(val, latency);
         }
 
-        // L1 miss — try L2
-        latency += getL2MemLatency(address);
-        fetchBlockToL1(l1, address);
+        // L1 miss — fetch block from L2/memory
+        FetchResult fetch = fetchBlockToL1(l1, address);
+        latency += fetch.latency;
 
-        val = l1.readWord(address);
-        return new AccessResult(val != null ? val : 0, latency);
+        // Extract word from the fetched block (no extra L1 lookup)
+        int offset = getBlockOffset(l1, address);
+        int data = fetch.blockData[offset];
+        return new AccessResult(data, latency);
     }
+
+    // ── Block fetch: L2 → Memory → install into L1 ──────────────────────
 
     /**
      * Fetch a block from L2 (or memory) and install it into the given L1 cache.
-     * Returns the block data.
+     * Counts exactly ONE L2 access for stats.
      */
-    private int[] fetchBlockToL1(CacheLevel l1, int address) {
+    private FetchResult fetchBlockToL1(CacheLevel l1, int address) {
         int blockSizeWords = l1.getBlockSizeWords();
         int blockStart = (address / l1.getConfig().blockSize) * l1.getConfig().blockSize;
         int[] block = new int[blockSizeWords];
+        int latency = 0;
 
-        // Try L2
-        Integer firstWord = l2.readWord(blockStart);
-        if (firstWord != null) {
-            // L2 hit — read the full block from L2
-            for (int i = 0; i < blockSizeWords; i++) {
-                Integer w = l2.readWord(blockStart + i * 4);
+        // Single L2 lookup for stats
+        Integer l2Probe = l2.readWord(blockStart);
+
+        if (l2Probe != null) {
+            // L2 hit — read the full block using no-stats methods
+            latency = l2.getConfig().latency;
+            block[0] = l2Probe;
+            for (int i = 1; i < blockSizeWords; i++) {
+                Integer w = l2.readWordNoStats(blockStart + i * 4);
                 block[i] = (w != null) ? w : 0;
             }
         } else {
             // L2 miss — fetch from main memory
+            latency = l2.getConfig().latency + memoryLatency;
             for (int i = 0; i < blockSizeWords; i++) {
                 block[i] = memory.readWord(blockStart + i * 4);
             }
-            // Install into L2
-            int l2BlockWords = l2.getBlockSizeWords();
-            int l2BlockStart = (address / l2.getConfig().blockSize) * l2.getConfig().blockSize;
-            int[] l2Block = new int[l2BlockWords];
-            for (int i = 0; i < l2BlockWords; i++) {
-                l2Block[i] = memory.readWord(l2BlockStart + i * 4);
-            }
+            // Install into L2 (no stats for the insert itself)
+            int[] l2Block = fetchMemoryBlock(l2, address);
             CacheLevel.EvictionResult l2Evict = l2.insert(address, l2Block);
             if (l2Evict != null) {
                 writeBackToMemory(l2Evict);
@@ -161,41 +167,23 @@ public class CacheHierarchy {
         // Install into L1
         CacheLevel.EvictionResult l1Evict = l1.insert(address, block);
         if (l1Evict != null) {
-            // Write dirty L1 eviction into L2
             writeBackToL2(l1Evict);
         }
 
-        return block;
+        return new FetchResult(block, latency);
     }
 
-    /**
-     * Returns the additional latency for an L2 lookup (hit or miss to memory).
-     */
-    private int getL2MemLatency(int address) {
-        // Check if block is in L2
-        int l2BlockStart = (address / l2.getConfig().blockSize) * l2.getConfig().blockSize;
-        Integer probe = l2.readWord(l2BlockStart);
-        // Undo the stat change from probing (we just want the latency estimate)
-        // Actually the real lookup happens in fetchBlockToL1, so we just return
-        // the worst/best case latency based on L2 state.
-        // Simpler approach: always charge L2 latency + memory latency on L1 miss.
-        // The L2 lookup stats are tracked inside fetchBlockToL1.
-        return l2.getConfig().latency + (probe != null ? 0 : memoryLatency);
-    }
+    // ── Write-back helpers (no stats) ────────────────────────────────────
 
     private void writeBackToL2(CacheLevel.EvictionResult eviction) {
-        // Try to write into L2; if miss, install the block
         int addr = eviction.address;
-        if (!l2.writeWord(addr, eviction.data[0])) {
-            // L2 miss — install the evicted block into L2
-            int l2BlockWords = l2.getBlockSizeWords();
-            int l2BlockStart = (addr / l2.getConfig().blockSize) * l2.getConfig().blockSize;
 
-            // Build a full L2 block from memory, then overlay the dirty data
-            int[] l2Block = new int[l2BlockWords];
-            for (int i = 0; i < l2BlockWords; i++) {
-                l2Block[i] = memory.readWord(l2BlockStart + i * 4);
-            }
+        // Try to write into existing L2 block (no stats)
+        if (!l2.writeWordNoStats(addr, eviction.data[0])) {
+            // L2 miss — install the evicted block into L2
+            int[] l2Block = fetchMemoryBlock(l2, addr);
+            int l2BlockStart = (addr / l2.getConfig().blockSize) * l2.getConfig().blockSize;
+            int l2BlockWords = l2.getBlockSizeWords();
             // Overlay dirty words from L1
             int l1Offset = (addr - l2BlockStart) / 4;
             for (int i = 0; i < eviction.data.length && (l1Offset + i) < l2BlockWords; i++) {
@@ -205,17 +193,44 @@ public class CacheHierarchy {
             if (l2Evict != null) {
                 writeBackToMemory(l2Evict);
             }
-            l2.writeWord(addr, eviction.data[0]);
+            l2.writeWordNoStats(addr, eviction.data[0]);
         }
-        // Write remaining words of the dirty L1 block into L2
+        // Write remaining words of the dirty L1 block into L2 (no stats)
         for (int i = 1; i < eviction.data.length; i++) {
-            l2.writeWord(addr + i * 4, eviction.data[i]);
+            l2.writeWordNoStats(addr + i * 4, eviction.data[i]);
         }
     }
 
     private void writeBackToMemory(CacheLevel.EvictionResult eviction) {
         for (int i = 0; i < eviction.data.length; i++) {
             memory.writeWord(eviction.address + i * 4, eviction.data[i]);
+        }
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+
+    private int getBlockOffset(CacheLevel level, int address) {
+        return Math.floorMod(address / 4, level.getBlockSizeWords());
+    }
+
+    private int[] fetchMemoryBlock(CacheLevel level, int address) {
+        int blockWords = level.getBlockSizeWords();
+        int blockStart = (address / level.getConfig().blockSize) * level.getConfig().blockSize;
+        int[] block = new int[blockWords];
+        for (int i = 0; i < blockWords; i++) {
+            block[i] = memory.readWord(blockStart + i * 4);
+        }
+        return block;
+    }
+
+    /** Result of fetching a block from L2/memory. */
+    private static class FetchResult {
+        final int[] blockData;
+        final int latency;
+
+        FetchResult(int[] blockData, int latency) {
+            this.blockData = blockData;
+            this.latency = latency;
         }
     }
 

@@ -68,29 +68,15 @@ public class PipelineController {
 
         while (true) {
 
-            // ── Handle MEM cache stall first ─────────────────────────────
-            if (memStallCycles > 0) {
-                memStallCycles--;
-                stats.cycles++;
-                stats.stalls++;
-                if (exStage.haltFlag && ++drainCycles >= DRAIN_THRESHOLD)
-                    break;
-                if (stats.cycles > MAX_CYCLE_LIMIT) {
-                    System.err.println("WARNING: cycle limit reached.");
-                    break;
-                }
-                continue;
-            }
+            // ── Handle Cache Stalls (MEM takes priority over IF) ─────────
+            if (memStallCycles > 0 || ifStallCycles > 0) {
+                if (memStallCycles > 0)
+                    memStallCycles--;
+                else
+                    ifStallCycles--;
 
-            // ── Handle IF cache stall ────────────────────────────────────
-            if (ifStallCycles > 0) {
-                ifStallCycles--;
-                // During IF stall, later stages can still proceed
-                // but IF and ID are frozen, so we just count the stall
                 stats.cycles++;
                 stats.stalls++;
-                if (exStage.haltFlag && ++drainCycles >= DRAIN_THRESHOLD)
-                    break;
                 if (stats.cycles > MAX_CYCLE_LIMIT) {
                     System.err.println("WARNING: cycle limit reached.");
                     break;

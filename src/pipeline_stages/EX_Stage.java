@@ -169,7 +169,7 @@ public class EX_Stage {
         }
 
         // Misprediction detection (conditional branches only — JAL has no prediction)
-        if (isBranch(op) && taken != idEx.branchPredictedTaken) {
+        if (op.isBranch() && taken != idEx.branchPredictedTaken) {
             out.branchMispredicted = true;
             out.branchRecoveryPC = taken ? (pc + imm) : (pc + 4);
         }
@@ -192,10 +192,5 @@ public class EX_Stage {
             default:
                 return false;
         }
-    }
-
-    private boolean isBranch(Opcode op) {
-        return op == Opcode.BEQ || op == Opcode.BNE
-                || op == Opcode.BLT || op == Opcode.BGE;
     }
 }
