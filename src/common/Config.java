@@ -76,10 +76,6 @@ public class Config {
         return forwardingEnabled;
     }
 
-    public void setForwardingEnabled(boolean enabled) {
-        this.forwardingEnabled = enabled;
-    }
-
     // ── Cache configuration ──────────────────────────────────────────────
 
     public boolean hasCacheConfig() {
@@ -100,16 +96,6 @@ public class Config {
 
     public int getMainMemoryLatency() {
         return mainMemoryLatency;
-    }
-
-    /**
-     * Programmatically enable cache components.
-     */
-    public void enableCache(CacheConfig l1i, CacheConfig l1d, CacheConfig l2, int mainMemoryLatency) {
-        this.l1i = l1i;
-        this.l1d = l1d;
-        this.l2 = l2;
-        this.mainMemoryLatency = mainMemoryLatency;
     }
 
     /**

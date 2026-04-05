@@ -25,9 +25,9 @@ public class CacheHierarchy {
 
     public CacheHierarchy(CacheConfig l1iCfg, CacheConfig l1dCfg,
             CacheConfig l2Cfg, int memoryLatency, Memory memory) {
-        this.l1i = new CacheLevel("L1I", l1iCfg);
-        this.l1d = new CacheLevel("L1D", l1dCfg);
-        this.l2 = new CacheLevel("L2", l2Cfg);
+        this.l1i = new CacheLevel(l1iCfg);
+        this.l1d = new CacheLevel(l1dCfg);
+        this.l2 = new CacheLevel(l2Cfg);
         this.memory = memory;
         this.memoryLatency = memoryLatency;
     }

@@ -1,15 +1,14 @@
 package core;
 
-import compiler.DataItem;
 import common.Instruction;
 import common.InstructionEncoder;
+import compiler.DataItem;
 
 import java.util.List;
 
 // Simulated main memory (configurable size, default 128 KB).
 public class Memory {
     private static final int DEFAULT_SIZE_BYTES = 131072; // 128 KB
-    private final int sizeBytes;
     private final int numWords;
     private final int[] data;
 
@@ -18,7 +17,6 @@ public class Memory {
     }
 
     public Memory(int sizeBytes) {
-        this.sizeBytes = sizeBytes;
         this.numWords = sizeBytes / 4;
         this.data = new int[numWords];
     }
@@ -67,15 +65,6 @@ public class Memory {
                 | ((value & 0xFF) << bytePosition);
     }
 
-    public void preload(int address, int[] values) {
-        for (int i = 0; i < values.length; i++) {
-            int idx = (address / 4) + i;
-            if (inBounds(idx)) {
-                data[idx] = values[i];
-            }
-        }
-    }
-
     /**
      * Encode a program (list of Instructions) into memory starting at the given
      * address.
@@ -100,9 +89,5 @@ public class Memory {
                 writeByte(item.address + i, item.bytes[i] & 0xFF);
             }
         }
-    }
-
-    public int getSizeBytes() {
-        return sizeBytes;
     }
 }

@@ -49,15 +49,7 @@ public class Processor {
 
     // --- Accessors ---
 
-    public int getRegister(int n) {
-        return rf.read(n);
-    }
-
     public Stats getStats() {
         return stats;
-    }
-
-    public void preload(int address, int[] values) {
-        mem.preload(address, values);
     }
 }

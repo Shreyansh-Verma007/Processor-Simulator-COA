@@ -28,11 +28,6 @@ public class PipelineController {
     private static final int MAX_CYCLE_LIMIT = 100_000;
 
     public void run(List<Instruction> program, Memory mem, RegisterFile rf,
-            Config cfg, Stats stats) {
-        run(program, mem, rf, cfg, stats, null);
-    }
-
-    public void run(List<Instruction> program, Memory mem, RegisterFile rf,
             Config cfg, Stats stats, CacheHierarchy cache) {
 
         // If cache is enabled, load program into memory for cache-based fetch
@@ -129,7 +124,7 @@ public class PipelineController {
 
             } else {
                 // Normal flow: ID then IF
-                idEx = idStage.tick(ifId, rf, cfg);
+                idEx = idStage.tick(ifId, cfg);
 
                 // BTFNT: backward branch predicted taken — redirect PC
                 if (idEx.predictedPC != -1) {

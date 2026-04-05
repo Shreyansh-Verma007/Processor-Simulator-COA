@@ -36,21 +36,4 @@ public class Stats {
         l2Hits = l2.getHits();
         l2Misses = l2.getMisses();
     }
-
-    public void printSummary() {
-        System.out.println("\n=== Simulation Complete ===");
-        System.out.println("Cycles             : " + cycles);
-        System.out.println("Stalls             : " + stalls);
-        System.out.println("Branch Flushes     : " + branchFlushes);
-        System.out.println("Instructions Retired: " + instructionsRetired);
-        System.out.printf("IPC                : %.3f%n", getIPC());
-
-        System.out.println("\n--- Cache Statistics ---");
-        System.out.printf("L1I  : %d hits, %d misses, miss rate %.3f%n",
-                l1iHits, l1iMisses, getMissRate(l1iHits, l1iMisses));
-        System.out.printf("L1D  : %d hits, %d misses, miss rate %.3f%n",
-                l1dHits, l1dMisses, getMissRate(l1dHits, l1dMisses));
-        System.out.printf("L2   : %d hits, %d misses, miss rate %.3f%n",
-                l2Hits, l2Misses, getMissRate(l2Hits, l2Misses));
-    }
 }

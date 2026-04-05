@@ -8,7 +8,6 @@ package cache;
  */
 public class CacheLevel {
 
-    private final String name;
     private final CacheConfig config;
     private final CacheLine[][] sets; // [set][way]
     private final int numSets;
@@ -21,8 +20,7 @@ public class CacheLevel {
     // Global clock for LRU/FIFO ordering
     private long clock = 0;
 
-    public CacheLevel(String name, CacheConfig config) {
-        this.name = name;
+    public CacheLevel(CacheConfig config) {
         this.config = config;
         this.numSets = config.getNumSets();
         this.blockSizeWords = config.blockSize / 4;
@@ -70,25 +68,8 @@ public class CacheLevel {
         return line.data[getBlockOffset(address)];
     }
 
-    /**
-     * Write a single word into this cache level (write-back: sets dirty bit).
-     * Returns true on hit, false on miss.
-     */
-    public boolean writeWord(int address, int value) {
-        CacheLine line = lookup(address);
-        if (line == null)
-            return false;
-        line.data[getBlockOffset(address)] = value;
-        line.dirty = true;
-        return true;
-    }
-
     // ── Internal methods (no stats) — for block fills and write-backs ───
 
-    /**
-     * Look up an address without updating hit/miss counters.
-     * Used internally by CacheHierarchy for block fills and write-backs.
-     */
     CacheLine lookupNoStats(int address) {
         return findLine(address, false);
     }
@@ -127,11 +108,6 @@ public class CacheLevel {
         line.data[getBlockOffset(address)] = value;
         line.dirty = true;
         return true;
-    }
-
-    /** Check if a block is present without affecting stats. */
-    boolean containsBlock(int address) {
-        return lookupNoStats(address) != null;
     }
 
     // ── Insertion / Eviction ─────────────────────────────────────────────
@@ -225,15 +201,6 @@ public class CacheLevel {
 
     public int getMisses() {
         return misses;
-    }
-
-    public double getMissRate() {
-        int total = hits + misses;
-        return total == 0 ? 0.0 : (double) misses / total;
-    }
-
-    public String getName() {
-        return name;
     }
 
     public CacheConfig getConfig() {

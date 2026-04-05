@@ -2,7 +2,6 @@ package pipeline_stages;
 
 import common.Config;
 import common.Instruction;
-import core.RegisterFile;
 import pipeline_registers.ID_EX;
 import pipeline_registers.IF_ID;
 
@@ -15,7 +14,7 @@ import pipeline_registers.IF_ID;
  */
 public class ID_Stage {
 
-    public ID_EX tick(IF_ID ifId, RegisterFile rf, Config cfg) {
+    public ID_EX tick(IF_ID ifId, Config cfg) {
         ID_EX out = new ID_EX();
         if (ifId.isNop || ifId.instruction == null) {
             return out;
