@@ -210,6 +210,43 @@ Collected via `Stats`:
 
 ---
 
+## ⚖️ Architectural Assumptions & Edge Cases
+
+To maintain a cycle-accurate hardware model, the simulator relies on several specific architectural assumptions and edge-case behaviors:
+
+### 1. Register File Write-Back Timing (Half-Cycle Execution)
+The `RegisterFile` simulates half-cycle write-first, read-second behavior. Because the simulator ticks stages in reverse order (`WB → MEM → EX → ID → IF`), `WB_Stage` commits its writes to the register file *before* `ID_Stage` reads from it in the same cycle. This ensures that values written in cycle `N` are immediately accessible to instructions decoding in cycle `N` without requiring an explicit forwarding path from WB to ID.
+
+### 2. Branch Resolution & BTFNT Prediction
+- Branches are statically predicted in the **ID Stage** using **BTFNT** (Backward branches are predicted Taken, Forward branches predicted Not Taken). If a backward branch is identified, `ID_Stage` eagerly updates the PC.
+- Branches are definitively resolved in the **EX Stage**. If the actual outcome diverges from the BTFNT prediction, the EX stage asserts a misprediction.
+- A misprediction flushes both the `IF_ID` and `ID_EX` pipeline registers, instantiating a precise **2-cycle penalty**.
+
+### 3. Stall Arbitration & Cache Miss Serialization
+- **Pipeline Freezes:** During a cache miss, the entire pipeline is frozen. The simulation loop suspends pipeline register advancement and solely decrements the stall counters.
+- **Concurrent Cache Misses:** If both the IF (Instruction) and MEM (Data) stages encounter a cache miss in the exact same cycle, the penalties are **serialized** (MEM miss latency is served first, followed immediately by IF miss latency). This models a shared L2 cache hierarchy with a single arbitrated memory port that prioritizes data requests over instruction fetches.
+- **Multi-Cycle EX Operations:** Instructions like `MUL` or `DIV` hold the pipeline by emitting a multi-cycle stall. New instructions are stalled in ID while EX spins down the required latency.
+
+### 4. Instruction Retirement Integrity
+The `instructionsRetired` metric increments unconditionally when any valid, non-flushed instruction successfully completes the WB stage, regardless of whether it actually writes to a destination register. Squashed instructions (e.g., from a branch flush) are converted to `NOP`s and correctly omitted from the retirement count.
+
+### 5. HALT Drain Mechanics
+When a `HALT` instruction is detected in the EX stage, the simulator initiates a 3-cycle drain sequence. This allows all trailing instructions currently occupying the MEM and WB stages to gracefully complete and retire before the simulation statically terminates.
+
+### 6. Cache Write Policy
+The L1D and L2 caches dynamically maintain a **write-back, write-allocate** policy. Target addresses are fetched into the cache upon a write miss (write-allocate) before being modified and cleanly marked dirty. Evictions naturally stagger down the memory layout.
+
+### 7. x0 Register Immutability
+Following standard RISC-V conventions, the `x0` register is strictly hardwired to zero. Unconditionally, `WB_Stage` rejects any modification sequence targeting `rd = 0` to uphold architectural purity.
+
+### 8. Forwarding Precedence
+In complex RAW dependencies where an instruction shares data hazards concurrently across both the `EX/MEM` and `MEM/WB` structures (such as stacked duplicate targets), the `ForwardingUnit` prioritizes `EX/MEM`. This robustly grants sequential freshness to the dependent operation.
+
+### 9. Memory Structural Alignment
+Calculations inherently utilize a 32-bit architectural grouping format (little-endian byte layouts) derived explicitly from byte address masking. Thus `LB` and `SB` flawlessly align within the overarching memory integer array without triggering misalignment fault artifacts.
+
+---
+
 ## 📂 Project Structure
 
 ```
