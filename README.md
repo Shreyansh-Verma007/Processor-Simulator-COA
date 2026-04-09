@@ -38,7 +38,7 @@ The system is structured around a central **Processor** and a **PipelineControll
 ## 🏗️ Pipeline Design
 
 ### 1️⃣ IF – Instruction Fetch
-- Fetches instruction from `Memory`
+- Fetches instruction from `CacheHierarchy` (falls back to `Memory`)
 - Maintains and updates PC
 - Writes to `IF_ID`
 
@@ -57,7 +57,7 @@ The system is structured around a central **Processor** and a **PipelineControll
 
 ### 4️⃣ MEM – Memory Access
 - Executes `LW` / `SW`
-- Interacts with `Memory`
+- Interacts with `CacheHierarchy`
 - Writes to `MEM_WB`
 
 ### 5️⃣ WB – Write Back
@@ -112,7 +112,7 @@ Pipeline registers are updated simultaneously at every clock edge to preserve ha
 
 Handled by:
 
-- `HazardUnit.detectHazard()`
+- `HazardUnit.needsStall()`
 - Automatic stall insertion
 - Bubble injection into pipeline
 
@@ -126,7 +126,7 @@ Special handling:
 
 Handled by:
 
-- `ForwardingUnit.resolve(rs1, rs2, EX_MEM, MEM_WB)`
+- `ForwardingUnit.getForwardA()` and `getForwardB()`
 - Priority: `EX_MEM` > `MEM_WB`
 
 `ForwardResult` determines operand source selection in EX stage.
@@ -248,7 +248,7 @@ src/
 
 ```mermaid
 ---
-title: RISC-V Pipeline Simulator - Phase 1
+title: RISC-V Pipeline Simulator - Phase 2
 ---
 classDiagram
     direction TB
@@ -396,6 +396,7 @@ classDiagram
     Processor *-- Memory
     Processor *-- RegisterFile
     Processor *-- Stats
+    Processor *-- CacheHierarchy
     Processor --> Config : reads
 
     %% ═══════════════════════════════════════
@@ -510,24 +511,46 @@ classDiagram
     %% ═══════════════════════════════════════
     namespace hazard {
         class HazardUnit {
-            +boolean detectHazard(ID_EX, EX_MEM, MEM_WB)
-            +boolean shouldStall()
-            +boolean shouldFlush()
+            +boolean needsStall(ID_EX, IF_ID, EX_MEM, Config)
         }
 
         class ForwardingUnit {
-            +ForwardResult resolve(int rs1, int rs2, EX_MEM, MEM_WB)
+            +ForwardResult getForwardA(ID_EX, EX_MEM, MEM_WB)
+            +ForwardResult getForwardB(ID_EX, EX_MEM, MEM_WB)
         }
 
         class ForwardResult {
-            +int forwardA
-            +int forwardB
-            +boolean useForwardA
-            +boolean useForwardB
+            <<enumeration>>
+            NONE
+            FROM_EX_MEM
+            FROM_MEM_WB
         }
     }
 
     ForwardingUnit --> ForwardResult : produces
+
+    %% ═══════════════════════════════════════
+    %%  NAMESPACE: cache
+    %% ═══════════════════════════════════════
+    namespace cache {
+        class CacheHierarchy {
+            +AccessResult fetchInstruction(int address)
+            +AccessResult readData(int addr, boolean isLoadUse)
+            +AccessResult writeData(int addr, int data)
+        }
+        class CacheLevel {
+        }
+        class AccessResult {
+        }
+        class CacheConfig {
+        }
+        class CacheLine {
+        }
+    }
+
+    CacheHierarchy *-- CacheLevel
+    CacheLevel *-- CacheConfig
+    CacheLevel *-- CacheLine
 
     %% ═══════════════════════════════════════
     %%  Cross-namespace relationships
@@ -540,8 +563,9 @@ classDiagram
     PipelineController --> HazardUnit : queries
     PipelineController --> ForwardingUnit : queries
 
-    IF_Stage  --> Memory : fetches instruction
-    MEM_Stage --> Memory : read/write data
+    IF_Stage  --> CacheHierarchy : fetches instruction
+    MEM_Stage --> CacheHierarchy : read/write data
+    CacheHierarchy --> Memory : accesses
     ID_Stage  --> RegisterFile : reads registers
     WB_Stage  --> RegisterFile : writes result
 

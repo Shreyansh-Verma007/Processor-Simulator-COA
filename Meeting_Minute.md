@@ -116,3 +116,13 @@
 #### Decisions:
 - Wired the cache hierarchy with the 5-stage pipeline.
 - Added support for .data segment in the assembler.
+
+---
+
+### Date: 3rd Apr 2025
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Finalized the RISC-V cache simulator, ensuring architectural correctness.
+- Optimized the two-level cache hierarchy and implemented robust pipeline hazard handling.
+- Performed a comprehensive codebase cleanup to make the simulator production-ready, DRY, and free of unused code.
