@@ -126,3 +126,25 @@
 - Finalized the RISC-V cache simulator, ensuring architectural correctness.
 - Optimized the two-level cache hierarchy and implemented robust pipeline hazard handling.
 - Performed a comprehensive codebase cleanup to make the simulator production-ready, DRY, and free of unused code.
+
+---
+
+## Phase 2
+
+---
+
+### Date: 5th Apr 2025
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Implemented BTFNT static branch prediction in the ID stage.
+- Updated EX stage and pipeline registers for misprediction detection.
+
+---
+
+### Date: 10th Apr 2025
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Fixed cache config wiring — latency values were not reflected in output.
+- Wired forwarding toggle to the config file.

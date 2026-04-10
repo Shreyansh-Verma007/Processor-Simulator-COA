@@ -3,163 +3,166 @@
 **Phase 2 – Cache & Pipeline Integration**
 
 A modular, cycle-accurate 5-stage in-order RISC-V pipeline simulator written in Java.  
-Designed with clean architectural separation between compilation, core processor, pipeline stages, hazard resolution logic, and variable-latency cache hierarchy.
+Designed with clean architectural separation between compilation, core processor, pipeline stages, hazard resolution, and a variable-latency two-level cache hierarchy.
 
 ---
 
 ## 🧠 Architectural Overview
 
-This simulator models a classic **5-stage RISC-V pipeline** featuring **BTFNT Branch Prediction** and a complete **Two-Level Set-Associative Cache Hierarchy**:
+This simulator models a classic **5-stage RISC-V pipeline** with **BTFNT Branch Prediction** and a complete **Two-Level Set-Associative Cache Hierarchy**:
 
 ```
 IF → ID → EX → MEM → WB
+│         │          │
+L1I       BTFNT      L1D
+│         predict    │
+L2 ◄────────────────►L2
+│                     │
+▼                     ▼
+      Main Memory
 ```
 
-The system is structured around a central **Processor** and a **PipelineController**, which coordinate stage execution and pipeline register updates on every clock cycle.
+### Core Components
 
-### Core Architectural Components
-
-| Component | Responsibility |
-|------------|----------------|
-| `Processor` | Top-level orchestrator of simulation |
-| `PipelineController` | Controls cycle progression, stalls, flushes |
-| `Stage` | Abstract base class for all pipeline stages |
-| `PipelineRegister` | Base class for inter-stage registers |
-| `HazardUnit` | Detects RAW hazards and load-use conditions |
-| `ForwardingUnit` | Resolves data dependencies dynamically |
-| `ForwardResult` | Encapsulates forwarding decisions |
-| `RegisterFile` | 32-register architectural state |
-| `CacheHierarchy` | L1I, L1D, and unified L2 cache controllers |
-| `Memory` | 128KB memory (.text at `0x0000`, .data at `0x0400`) |
-| `Stats` | Collects performance and cache metrics |
+| Component | File | Responsibility |
+|-----------|------|----------------|
+| `Processor` | `core/Processor.java` | Top-level orchestrator — builds cache hierarchy, dispatches to pipeline |
+| `PipelineController` | `pipeline_stages/PipelineController.java` | Cycle loop, stall arbitration, branch flush handling |
+| `HazardUnit` | `hazard/HazardUnit.java` | Detects RAW hazards, load-use conditions, multi-cycle stalls |
+| `ForwardingUnit` | `hazard/ForwardingUnit.java` | Resolves data dependencies via EX/MEM → MEM/WB bypassing |
+| `CacheHierarchy` | `cache/CacheHierarchy.java` | L1I, L1D, and unified L2 cache with write-back policy |
+| `CacheLevel` | `cache/CacheLevel.java` | Single set-associative cache level (LRU / FIFO eviction) |
+| `RegisterFile` | `core/RegisterFile.java` | 32-register architectural state (x0 hardwired to 0) |
+| `Memory` | `core/Memory.java` | 128 KB main memory (.text at `0x0000`, .data at `0x0400`) |
+| `Stats` | `core/Stats.java` | Collects cycles, stalls, flushes, IPC, cache hit/miss rates |
+| `Config` | `common/Config.java` | Instruction latencies, cache parameters, forwarding toggle |
 
 ---
 
-## 🏗️ Pipeline Design
+## 🏗️ Pipeline Stages
 
 ### 1️⃣ IF – Instruction Fetch
-- Fetches instruction from `CacheHierarchy` (falls back to `Memory`)
-- Maintains and updates PC
-- Writes to `IF_ID`
+- Fetches instructions through **L1I cache** → L2 → main memory
+- Variable latency: L1I hit = `L1I_LATENCY` cycles, miss adds L2 + memory latency
+- Falls back to direct list fetch when cache is disabled
 
 ### 2️⃣ ID – Instruction Decode
-- Decodes opcode and operands
-- Reads from `RegisterFile`
-- Generates control signals
-- Performs hazard detection
-- Writes to `ID_EX`
+- Decodes opcode, registers, and immediates
+- Applies **BTFNT static branch prediction** (backward = taken, forward = not taken)
+- Sets up multi-cycle latency countdown (MUL = 3 cycles, DIV = 4)
 
 ### 3️⃣ EX – Execute
-- Performs ALU operations
-- Computes branch conditions and targets
-- Applies forwarding decisions
-- Writes to `EX_MEM`
+- ALU computation for all R/I-type instructions
+- Branch condition evaluation and misprediction detection
+- Operand forwarding resolution (EX/MEM → newMEM/WB → oldMEM/WB → register file)
 
 ### 4️⃣ MEM – Memory Access
-- Executes `LW` / `SW`
-- Interacts with `CacheHierarchy`
-- Writes to `MEM_WB`
+- Load/Store through **L1D cache** → L2 → main memory
+- Variable latency with write-allocate, write-back policy
+- Supports `LW`, `LB`, `SW`, `SB`
 
 ### 5️⃣ WB – Write Back
 - Writes results to `RegisterFile`
 - Enforces x0 immutability
+- Increments `instructionsRetired` counter
 
 ---
 
-## 🚀 Simulation Workflow
+## 🛠️ Build & Run
 
-The simulator is designed for rapid iteration. Modify your assembly, run the simulation, and inspect results immediately.
-
-### 📥 Input
-- **File**: `input.asm`
-- **Format**: RISC-V Assembly (subset)
-- **Content**: Provide your instructions here. The simulator defaults to `input.asm` if no file is specified.
-
-### 📤 Output
-- **Console**: Real-time cycle-by-step logs and performance summary.
-- **`console.txt`**: A full log of every cycle's execution for debugging.
-- **`output.txt`**: Final simulation statistics (Cycles, Stalls, IPC, etc.).
-
----
-
-## 🔄 Pipeline Registers
-
-Each stage boundary is separated by a dedicated pipeline register:
-
-```
-IF_ID
-ID_EX
-EX_MEM
-MEM_WB
+### Compile
+```bash
+javac -sourcepath src -d bin src/Main.java
 ```
 
-All extend `PipelineRegister` and carry:
+### Run
+```bash
+# With default cache configuration
+java -cp bin Main input.asm
 
-- Instruction metadata
-- Operand values
-- Destination register index
-- Control signals
-- Computed results
-- Valid/bubble state
+# With custom cache configuration file
+java -cp bin Main input.asm cache_config.txt
+```
 
-Pipeline registers are updated simultaneously at every clock edge to preserve hardware-accurate behavior.
-
----
-
-## ⚠️ Hazard Handling
-
-### 🔹 Data Hazards (RAW)
-
-Handled by:
-
-- `HazardUnit.needsStall()`
-- Automatic stall insertion
-- Bubble injection into pipeline
-
-Special handling:
-- Load-use hazard detection
-- x0 ignored in dependency checks
+### Output Files
+- **`output.txt`** — Simulation stats, active cache config, hit/miss rates
+- **`console.txt`** — Register dumps (ECALL) and compilation info
 
 ---
 
-### 🔹 Forwarding
+## ⚙️ Configuration
 
-Handled by:
+### Cache Configuration File
 
-- `ForwardingUnit.getForwardA()` and `getForwardB()`
-- Priority: `EX_MEM` > `MEM_WB`
+Create a `cache_config.txt` with `KEY = VALUE` pairs (lines starting with `#` are comments):
 
-`ForwardResult` determines operand source selection in EX stage.
+```properties
+# ── L1 Instruction Cache ──
+L1I_SIZE          = 1024    # Total size in bytes
+L1I_BLOCK_SIZE    = 64      # Block (cache line) size in bytes
+L1I_ASSOCIATIVITY = 2       # Number of ways per set
+L1I_LATENCY       = 5       # Hit latency in cycles
 
-Forwarding can be toggled via configuration.
+# ── L1 Data Cache ──
+L1D_SIZE          = 1024
+L1D_BLOCK_SIZE    = 64
+L1D_ASSOCIATIVITY = 2
+L1D_LATENCY       = 5
+
+# ── L2 Unified Cache ──
+L2_SIZE           = 8192
+L2_BLOCK_SIZE     = 64
+L2_ASSOCIATIVITY  = 4
+L2_LATENCY        = 50
+
+# ── Main Memory & Policies ──
+MEMORY_LATENCY     = 200     # Main memory access latency in cycles
+REPLACEMENT_POLICY = LRU     # LRU or FIFO
+FORWARDING_ENABLED = true    # true or false
+```
+
+### Instruction Latencies (in `Config.java`)
+
+| Instruction | Cycles |
+|-------------|--------|
+| ADD, SUB, ADDI, LI, SLL, SRL, XOR, OR, AND | 1 |
+| MUL | 3 |
+| DIV | 4 |
+| LW, LB, SW, SB | 1 (+ cache access latency) |
+| BEQ, BNE, BLT, BGE, JAL | 1 |
+
+### Latency Model
+
+| Scenario | Total Latency |
+|----------|---------------|
+| L1 hit | `L1_LATENCY` |
+| L1 miss → L2 hit | `L1_LATENCY + L2_LATENCY` |
+| L1 miss → L2 miss | `L1_LATENCY + L2_LATENCY + MEMORY_LATENCY` |
 
 ---
 
-### 🔹 Control Hazards
+## 📊 Sample Output (`output.txt`)
 
-- Static **BTFNT (Backward-Taken, Forward-Not-Taken)** Branch Prediction implemented.
-- Branches resolved completely in EX stage.
-- Misprediction recovery:
-  - Flush-on-mispredict strategy (squashes fetched/decoded instructions).
-  - `PipelineController` triggers PC redirection and dynamically handles bubbles automatically.
+```
+=== Simulation Stats ===
+Cycles             : 4449
+Stalls             : 3823
+Branch Flushes     : 23
+Instructions Retired: 576
+IPC                : 0.129
 
----
+--- Cache Configuration ---
+L1I  : 1024B, 64B blocks, 2-way, 5-cycle, LRU
+L1D  : 1024B, 64B blocks, 2-way, 5-cycle, LRU
+L2   : 8192B, 64B blocks, 4-way, 50-cycle, LRU
+Memory Latency: 200 cycles
+Forwarding    : enabled
 
-## 🧩 Compilation Pipeline
-
-Before execution, assembly is processed through:
-
-- `Lexer`
-- `Parser`
-- `LabelResolutionPass`
-- `CompilerPass`
-- `Compiler`
-
-Produces:
-
-- `CompilationResult`
-- Fully resolved instruction list
-- Loaded into `Memory`
+--- Cache Statistics ---
+L1I  : 601 hits, 2 misses, miss rate 0.003
+L1D  : 154 hits, 1 misses, miss rate 0.006
+L2   : 0 hits, 3 misses, miss rate 1.000
+```
 
 ---
 
@@ -167,83 +170,36 @@ Produces:
 
 | Type | Instructions |
 |------|-------------|
-| 🧮 Arithmetic | `ADD`, `SUB`, `MUL`, `DIV`, `ADDI`, `LI`, `AND`, `OR`, `XOR`, `SLL`, `SRL` |
-| 💾 Memory | `LW`, `LB`, `SW`, `SB` |
-| 🌿 Branch | `BEQ`, `BNE`, `BLT`, `BGE` (with BTFNT static prediction) |
-| 🔀 Jump | `JAL` |
+| 🧮 R-Type | `ADD`, `SUB`, `MUL`, `DIV`, `SLL`, `SRL`, `XOR`, `OR`, `AND` |
+| 🔢 I-Type | `ADDI` |
 | 🏷️ Pseudo | `LI`, `LA`, `MV`, `NOP` |
+| 💾 Memory | `LW`, `LB`, `SW`, `SB` |
+| 🌿 Branch | `BEQ`, `BNE`, `BLT`, `BGE` (with BTFNT prediction) |
+| 🔀 Jump | `JAL` |
 | 🛑 System | `ECALL`, `HALT` |
 
----
+### Registers
+Both numeric (`x0`–`x31`) and ABI names (`zero`, `ra`, `sp`, `a0`–`a7`, `t0`–`t6`, `s0`–`s11`) are supported.
 
-## ⚙️ Configuration
-
-Execution parameters are defined in `Config.java`.
-
-Example:
-
-```java
-latencies.put(Opcode.ADD, 1);
-latencies.put(Opcode.MUL, 2);
-forwardingEnabled = true;
-```
-
-Configurable features:
-
-- Per-opcode latency
-- Forwarding enable/disable
-- Memory size
-- Pipeline behavior
+### Data Directives (`.data` section)
+`.word`, `.half`, `.byte`, `.space`, `.zero`, `.ascii`, `.asciiz`, `.string`, `.align`, `.globl`
 
 ---
 
-## 📊 Performance Metrics
+## ⚠️ Hazard Handling
 
-Collected via `Stats`:
+### Data Hazards (RAW)
+- **With forwarding enabled:** EX/MEM → MEM/WB bypass paths resolve most RAW hazards. Load-use hazards still incur a 1-cycle stall.
+- **With forwarding disabled:** All RAW hazards from EX and MEM stages produce pipeline stalls.
 
-- Total cycles
-- Committed instructions
-- Stall count
-- Flush count
-- IPC (Instructions Per Cycle)
-- CPI (Cycles Per Instruction)
+### Control Hazards
+- **BTFNT prediction:** Backward branches predicted taken, forward branches predicted not taken (applied in ID stage).
+- **Misprediction penalty:** 2-cycle flush (IF_ID and ID_EX registers squashed).
+- **JAL:** Always flushes 1 cycle (no prediction, resolved in EX).
 
----
-
-## ⚖️ Architectural Assumptions & Edge Cases
-
-To maintain a cycle-accurate hardware model, the simulator relies on several specific architectural assumptions and edge-case behaviors:
-
-### 1. Register File Write-Back Timing (Half-Cycle Execution)
-The `RegisterFile` simulates half-cycle write-first, read-second behavior. Because the simulator ticks stages in reverse order (`WB → MEM → EX → ID → IF`), `WB_Stage` commits its writes to the register file *before* `ID_Stage` reads from it in the same cycle. This ensures that values written in cycle `N` are immediately accessible to instructions decoding in cycle `N` without requiring an explicit forwarding path from WB to ID.
-
-### 2. Branch Resolution & BTFNT Prediction
-- Branches are statically predicted in the **ID Stage** using **BTFNT** (Backward branches are predicted Taken, Forward branches predicted Not Taken). If a backward branch is identified, `ID_Stage` eagerly updates the PC.
-- Branches are definitively resolved in the **EX Stage**. If the actual outcome diverges from the BTFNT prediction, the EX stage asserts a misprediction.
-- A misprediction flushes both the `IF_ID` and `ID_EX` pipeline registers, instantiating a precise **2-cycle penalty**.
-
-### 3. Stall Arbitration & Cache Miss Serialization
-- **Pipeline Freezes:** During a cache miss, the entire pipeline is frozen. The simulation loop suspends pipeline register advancement and solely decrements the stall counters.
-- **Concurrent Cache Misses:** If both the IF (Instruction) and MEM (Data) stages encounter a cache miss in the exact same cycle, the penalties are **serialized** (MEM miss latency is served first, followed immediately by IF miss latency). This models a shared L2 cache hierarchy with a single arbitrated memory port that prioritizes data requests over instruction fetches.
-- **Multi-Cycle EX Operations:** Instructions like `MUL` or `DIV` hold the pipeline by emitting a multi-cycle stall. New instructions are stalled in ID while EX spins down the required latency.
-
-### 4. Instruction Retirement Integrity
-The `instructionsRetired` metric increments unconditionally when any valid, non-flushed instruction successfully completes the WB stage, regardless of whether it actually writes to a destination register. Squashed instructions (e.g., from a branch flush) are converted to `NOP`s and correctly omitted from the retirement count.
-
-### 5. HALT Drain Mechanics
-When a `HALT` instruction is detected in the EX stage, the simulator initiates a 3-cycle drain sequence. This allows all trailing instructions currently occupying the MEM and WB stages to gracefully complete and retire before the simulation statically terminates.
-
-### 6. Cache Write Policy
-The L1D and L2 caches dynamically maintain a **write-back, write-allocate** policy. Target addresses are fetched into the cache upon a write miss (write-allocate) before being modified and cleanly marked dirty. Evictions naturally stagger down the memory layout.
-
-### 7. x0 Register Immutability
-Following standard RISC-V conventions, the `x0` register is strictly hardwired to zero. Unconditionally, `WB_Stage` rejects any modification sequence targeting `rd = 0` to uphold architectural purity.
-
-### 8. Forwarding Precedence
-In complex RAW dependencies where an instruction shares data hazards concurrently across both the `EX/MEM` and `MEM/WB` structures (such as stacked duplicate targets), the `ForwardingUnit` prioritizes `EX/MEM`. This robustly grants sequential freshness to the dependent operation.
-
-### 9. Memory Structural Alignment
-Calculations inherently utilize a 32-bit architectural grouping format (little-endian byte layouts) derived explicitly from byte address masking. Thus `LB` and `SB` flawlessly align within the overarching memory integer array without triggering misalignment fault artifacts.
+### Cache Miss Stalls
+- **MEM priority:** If both IF and MEM have cache misses in the same cycle, MEM (data) stall is served first, then IF (instruction).
+- **Pipeline freeze:** During cache stalls, the entire pipeline is frozen — no stage advances.
 
 ---
 
@@ -251,427 +207,72 @@ Calculations inherently utilize a 32-bit architectural grouping format (little-e
 
 ```
 src/
-├── common/              Opcode, Instruction, Config
-├── compiler/            Lexer, Parser, Compiler passes
+├── Main.java                    Entry point
+├── cache/
+│   ├── AccessResult.java        Cache access result (data + latency)
+│   ├── CacheConfig.java         Immutable cache-level config with validation
+│   ├── CacheHierarchy.java      L1I → L2, L1D → L2 → Memory routing
+│   ├── CacheLevel.java          Set-associative cache (LRU/FIFO eviction)
+│   └── CacheLine.java           Single cache line (valid, dirty, tag, data)
+├── common/
+│   ├── Config.java              Latencies, cache defaults, forwarding toggle
+│   ├── Instruction.java         Immutable instruction record (Java record)
+│   ├── InstructionEncoder.java  32-bit encode/decode for memory storage
+│   └── Opcode.java              All supported opcodes with utility methods
+├── compiler/
+│   ├── CompilationResult.java   Instructions + data items from assembly
+│   ├── Compiler.java            Two-pass compiler (.data + .text)
+│   ├── DataItem.java            Bytes to write at a memory address
+│   ├── Lexer.java               Line tokenizer (strips comments)
+│   └── Parser.java              Assembly → Instruction parser
 ├── core/
-│   ├── Processor.java
-│   ├── PipelineController.java
-│   ├── Memory.java
-│   ├── RegisterFile.java
-│   └── Stats.java
-├── pipeline/
-│   ├── Stage.java
-│   ├── registers/
-│   │   ├── PipelineRegister.java
-│   │   ├── IF_ID.java
-│   │   ├── ID_EX.java
-│   │   ├── EX_MEM.java
-│   │   └── MEM_WB.java
-│   └── stages/
-│       ├── IF_Stage.java
-│       ├── ID_Stage.java
-│       ├── EX_Stage.java
-│       ├── MEM_Stage.java
-│       └── WB_Stage.java
-└── hazard/
-    ├── HazardUnit.java
-    ├── ForwardingUnit.java
-    └── ForwardResult.java
+│   ├── Memory.java              128 KB byte-addressable memory
+│   ├── Processor.java           Top-level simulator controller
+│   ├── RegisterFile.java        32 integer registers (x0 = 0)
+│   └── Stats.java               Performance + cache metrics
+├── hazard/
+│   ├── ForwardResult.java       Enum: NONE, FROM_EX_MEM, FROM_MEM_WB
+│   ├── ForwardingUnit.java      Data bypass path resolution
+│   └── HazardUnit.java          Stall detection (RAW, load-use, multi-cycle)
+├── pipeline_registers/
+│   ├── IF_ID.java               Instruction + PC + fetch latency
+│   ├── ID_EX.java               Decoded fields + BTFNT prediction state
+│   ├── EX_MEM.java              ALU result + branch resolution
+│   └── MEM_WB.java              Final result + memory latency
+└── pipeline_stages/
+    ├── IF_Stage.java            Fetch via L1I cache or direct list
+    ├── ID_Stage.java            Decode + BTFNT prediction
+    ├── EX_Stage.java            ALU + forwarding + branch misprediction
+    ├── MEM_Stage.java           Load/Store via L1D cache
+    ├── WB_Stage.java            Register write-back
+    └── PipelineController.java  Cycle orchestration + stall/flush logic
 ```
 
 ---
 
-## 🏗️ Architecture
+## ⚖️ Architectural Assumptions
 
-```mermaid
----
-title: RISC-V Pipeline Simulator - Phase 2
----
-classDiagram
-    direction TB
-
-    %% ═══════════════════════════════════════
-    %%  NAMESPACE: common
-    %% ═══════════════════════════════════════
-    namespace common {
-        class Opcode {
-            <<enumeration>>
-            ADD
-            SUB
-            MUL
-            DIV
-            AND
-            OR
-            XOR
-            SLL
-            SRL
-            SRA
-            ADDI
-            SUBI
-            LW
-            SW
-            BEQ
-            BNE
-            BLT
-            BGE
-            JAL
-            JALR
-            HALT
-        }
-
-        class InstructionType {
-            <<enumeration>>
-            R_TYPE
-            I_TYPE
-            S_TYPE
-            B_TYPE
-            U_TYPE
-            J_TYPE
-        }
-
-        class Instruction {
-            <<record>>
-            +Opcode opcode
-            +int rd
-            +int rs1
-            +int rs2
-            +int immediate
-            +String label
-            +Instruction(op, rd, rs1, rs2)
-            +Instruction(op, rd, rs1, imm)
-        }
-
-        class Config {
-            -Map latencies
-            -boolean forwardingEnabled
-            +int getLatency(Opcode op)
-            +boolean isForwardingEnabled()
-            +void setForwardingEnabled(boolean f)
-        }
-    }
-
-    Instruction --> Opcode : uses
-    Instruction ..> InstructionType : classified by
-
-    %% ═══════════════════════════════════════
-    %%  NAMESPACE: compiler
-    %% ═══════════════════════════════════════
-    namespace compiler {
-        class Compiler {
-            +CompilationResult compile(String path)
-        }
-
-        class CompilationResult {
-            +List instructions
-            +Map symbolMap
-        }
-
-        class Lexer {
-            +List tokenize(String source)
-        }
-
-        class Parser {
-            +List parse(List tokens)
-        }
-
-        class CompilerPass {
-            <<interface>>
-            +void run(List program, Map symbols)
-        }
-
-        class LabelResolutionPass {
-            +void run(List program, Map symbols)
-        }
-    }
-
-    Compiler *-- CompilationResult : produces
-    Compiler --> Lexer : delegates
-    Compiler --> Parser : delegates
-    Compiler --> CompilerPass : applies passes
-    LabelResolutionPass ..|> CompilerPass
-    CompilationResult --> Instruction : contains
-
-    %% ═══════════════════════════════════════
-    %%  NAMESPACE: core
-    %% ═══════════════════════════════════════
-    namespace core {
-        class Memory {
-            -byte[] data
-            +int readWord(int address)
-            +void writeWord(int addr, int val)
-            +void loadProgram(List instrs)
-        }
-
-        class RegisterFile {
-            -int[] registers
-            +int read(int index)
-            +void write(int index, int value)
-        }
-
-        class Stats {
-            -int cycleCount
-            -int instructionsCommitted
-            -int stallCount
-            +void incrementCycles()
-            +void incrementCommitted()
-            +void incrementStalls()
-            +double getIPC()
-            +String report()
-        }
-
-        class Processor {
-            -Memory memory
-            -RegisterFile registerFile
-            -Stats stats
-            -Config config
-            -PipelineController pipeline
-            +void run(List program)
-            +void step()
-        }
-    }
-
-    Processor *-- Memory
-    Processor *-- RegisterFile
-    Processor *-- Stats
-    Processor *-- CacheHierarchy
-    Processor --> Config : reads
-
-    %% ═══════════════════════════════════════
-    %%  NAMESPACE: pipeline_stages
-    %% ═══════════════════════════════════════
-    namespace pipeline_stages {
-        class PipelineController {
-            -List stages
-            -HazardUnit hazardUnit
-            -ForwardingUnit forwardingUnit
-            +void tick()
-            +void flush()
-            +boolean isFinished()
-        }
-
-        class Stage {
-            <<abstract>>
-            #String name
-            +void execute()*
-            +boolean isStalled()
-        }
-
-        class IF_Stage {
-            <<Instruction Fetch>>
-            -int pc
-            +void execute()
-            +void setPC(int addr)
-            +int getPC()
-        }
-
-        class ID_Stage {
-            <<Instruction Decode>>
-            +void execute()
-            -void decodeFields(Instruction instr)
-        }
-
-        class EX_Stage {
-            <<Execute>>
-            +void execute()
-            -int computeALU(Opcode op, int a, int b)
-            -boolean evaluateBranch(Opcode op, int a, int b)
-        }
-
-        class MEM_Stage {
-            <<Memory Access>>
-            +void execute()
-        }
-
-        class WB_Stage {
-            <<Write Back>>
-            +void execute()
-        }
-    }
-
-    IF_Stage  --|> Stage
-    ID_Stage  --|> Stage
-    EX_Stage  --|> Stage
-    MEM_Stage --|> Stage
-    WB_Stage  --|> Stage
-
-    %% ═══════════════════════════════════════
-    %%  NAMESPACE: pipeline_registers
-    %% ═══════════════════════════════════════
-    namespace pipeline_registers {
-        class PipelineRegister {
-            <<abstract>>
-            #boolean nop
-            +void clear()
-            +boolean isNop()
-            +void setNop(boolean flag)
-        }
-
-        class IF_ID {
-            +Instruction instruction
-            +int pc
-        }
-
-        class ID_EX {
-            +Instruction instruction
-            +int readData1
-            +int readData2
-            +int immediate
-            +int rd
-            +int rs1
-            +int rs2
-        }
-
-        class EX_MEM {
-            +Instruction instruction
-            +int aluResult
-            +int writeData
-            +int rd
-            +boolean branchTaken
-            +int branchTarget
-        }
-
-        class MEM_WB {
-            +Instruction instruction
-            +int aluResult
-            +int memData
-            +int rd
-        }
-    }
-
-    IF_ID   --|> PipelineRegister
-    ID_EX   --|> PipelineRegister
-    EX_MEM  --|> PipelineRegister
-    MEM_WB  --|> PipelineRegister
-
-    %% ═══════════════════════════════════════
-    %%  NAMESPACE: hazard
-    %% ═══════════════════════════════════════
-    namespace hazard {
-        class HazardUnit {
-            +boolean needsStall(ID_EX, IF_ID, EX_MEM, Config)
-        }
-
-        class ForwardingUnit {
-            +ForwardResult getForwardA(ID_EX, EX_MEM, MEM_WB)
-            +ForwardResult getForwardB(ID_EX, EX_MEM, MEM_WB)
-        }
-
-        class ForwardResult {
-            <<enumeration>>
-            NONE
-            FROM_EX_MEM
-            FROM_MEM_WB
-        }
-    }
-
-    ForwardingUnit --> ForwardResult : produces
-
-    %% ═══════════════════════════════════════
-    %%  NAMESPACE: cache
-    %% ═══════════════════════════════════════
-    namespace cache {
-        class CacheHierarchy {
-            +AccessResult fetchInstruction(int address)
-            +AccessResult readData(int addr, boolean isLoadUse)
-            +AccessResult writeData(int addr, int data)
-        }
-        class CacheLevel {
-        }
-        class AccessResult {
-        }
-        class CacheConfig {
-        }
-        class CacheLine {
-        }
-    }
-
-    CacheHierarchy *-- CacheLevel
-    CacheLevel *-- CacheConfig
-    CacheLevel *-- CacheLine
-
-    %% ═══════════════════════════════════════
-    %%  Cross-namespace relationships
-    %% ═══════════════════════════════════════
-
-    Processor *-- PipelineController : drives
-    PipelineController *-- Stage : 5 stages
-    PipelineController *-- PipelineRegister : 4 regs
-
-    PipelineController --> HazardUnit : queries
-    PipelineController --> ForwardingUnit : queries
-
-    IF_Stage  --> CacheHierarchy : fetches instruction
-    MEM_Stage --> CacheHierarchy : read/write data
-    CacheHierarchy --> Memory : accesses
-    ID_Stage  --> RegisterFile : reads registers
-    WB_Stage  --> RegisterFile : writes result
-
-    IF_Stage  ..> IF_ID  : writes
-    ID_Stage  ..> IF_ID  : reads
-    ID_Stage  ..> ID_EX  : writes
-    EX_Stage  ..> ID_EX  : reads
-    EX_Stage  ..> EX_MEM : writes
-    MEM_Stage ..> EX_MEM : reads
-    MEM_Stage ..> MEM_WB : writes
-    WB_Stage  ..> MEM_WB : reads
-
-    HazardUnit     --> ID_EX  : inspects
-    HazardUnit     --> EX_MEM : inspects
-    ForwardingUnit --> EX_MEM : inspects
-    ForwardingUnit --> MEM_WB : inspects
-
-    Compiler --> Instruction : produces
-    EX_Stage --> Config : reads latency
-```
-
-
-## 🛠️ Build & Run
-
-### 🔨 Compile
-Compile all source files into the `bin` directory:
-
-```bash
-javac -d bin src/common/*.java src/core/*.java src/compiler/*.java src/hazard/*.java src/pipeline_registers/*.java src/pipeline_stages/*.java src/cache/*.java src/Main.java
-```
-
-### 🏃 Run
-Execute the simulator using the `Main` entry point:
-
-```bash
-# Run with default input.asm (Direct Memory Access)
-java -cp bin Main input.asm
-
-# Run with Cache Configuration
-java -cp bin Main input.asm cache_config.txt
-```
-
-> [!TIP]
-> After running, check `console.txt` for detailed cycle/stage logs and `output.txt` for performance metrics (IPC/Stalls/Cache Hits).
+1. **Half-cycle write-back:** Stages tick in reverse order (WB→MEM→EX→ID→IF), so WB writes to the register file before ID reads in the same cycle.
+2. **BTFNT prediction:** Applied in ID stage. Backward branches redirect PC immediately; mispredictions are caught in EX and cause a 2-cycle flush.
+3. **Cache miss serialization:** Concurrent IF + MEM misses are serialized (MEM first). Models a shared L2 with single-port memory arbitration.
+4. **Write-back, write-allocate:** On a store miss, the block is fetched into cache, then modified. Dirty evictions propagate down the hierarchy.
+5. **HALT drain:** After HALT is detected in EX, 3 drain cycles allow MEM and WB to retire trailing instructions.
+6. **x0 immutability:** WB stage rejects all writes to x0.
+7. **Forwarding precedence:** EX/MEM > MEM/WB when both match the same source register.
+8. **64-byte blocks = 16 instructions:** Block size of 64 bytes holds 16 four-byte encoded instructions.
 
 ---
 
 ## 🎯 Design Philosophy
 
-This simulator emphasizes:
-
-- Strict separation of architectural layers
-- Hardware-accurate cycle simulation
-- Clean hazard resolution logic
-- Deterministic, traceable pipeline behavior
-- Extensibility without structural redesign
-
----
-
-## 🚀 Future Extensions (Planned)
-
-- Superscalar issue width
-- Dynamic scheduling
-- Register renaming
-- Reorder Buffer (ROB)
-- Multi-cycle ALU functional units
+- **SOLID principles:** Single responsibility per class, consolidated defaults (DRY), private internals, validated config
+- **Hardware-accurate:** Cycle-precise simulation, proper stall/flush semantics
+- **Configurable:** All cache parameters, replacement policy, forwarding toggle, instruction latencies
+- **Observable:** `output.txt` prints both the active configuration and resulting statistics
+- **Extensible:** Adding new instructions or cache levels requires no structural redesign
 
 ---
 
 ### RISC-V Pipeline Simulator – Phase 2
 
-**Cycle Accurate • Set-Associative Cache • BTFNT Predicted • Functional**
+**Cycle Accurate • Set-Associative Cache • BTFNT Predicted • Fully Configurable**
