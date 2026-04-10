@@ -14,15 +14,35 @@ public class Config {
     private Map<Opcode, Integer> latencies;
     private boolean forwardingEnabled;
 
+    // ── Default cache parameters (single source of truth) ────────────────
+    private static final int DEF_L1I_SIZE = 1024;
+    private static final int DEF_L1I_BLOCK = 64;
+    private static final int DEF_L1I_ASSOC = 2;
+    private static final int DEF_L1I_LATENCY = 5;
+
+    private static final int DEF_L1D_SIZE = 1024;
+    private static final int DEF_L1D_BLOCK = 64;
+    private static final int DEF_L1D_ASSOC = 2;
+    private static final int DEF_L1D_LATENCY = 5;
+
+    private static final int DEF_L2_SIZE = 8192;
+    private static final int DEF_L2_BLOCK = 64;
+    private static final int DEF_L2_ASSOC = 4;
+    private static final int DEF_L2_LATENCY = 50;
+
+    private static final int DEF_MEMORY_LATENCY = 200;
+    private static final ReplacementPolicy DEF_POLICY = ReplacementPolicy.LRU;
+    private static final boolean DEF_FORWARDING = true;
+
     // Cache configuration (null = no cache, direct memory access)
     private CacheConfig l1i;
     private CacheConfig l1d;
     private CacheConfig l2;
-    private int mainMemoryLatency = 100;
+    private int mainMemoryLatency;
 
     public Config() {
         this.latencies = new HashMap<>();
-        this.forwardingEnabled = true;
+        this.forwardingEnabled = DEF_FORWARDING;
 
         // R-Type
         latencies.put(Opcode.ADD, 1);
@@ -58,12 +78,11 @@ public class Config {
         latencies.put(Opcode.ECALL, 1);
         latencies.put(Opcode.HALT, 1);
 
-        // Setup default cache hierarchy
-        ReplacementPolicy policy = ReplacementPolicy.LRU;
-        this.l1i = new CacheConfig(1024, 64, 2, 1, policy);
-        this.l1d = new CacheConfig(1024, 64, 2, 1, policy);
-        this.l2 = new CacheConfig(8192, 64, 4, 4, policy);
-        this.mainMemoryLatency = 100;
+        // Setup default cache hierarchy (uses the constants above)
+        this.l1i = new CacheConfig(DEF_L1I_SIZE, DEF_L1I_BLOCK, DEF_L1I_ASSOC, DEF_L1I_LATENCY, DEF_POLICY);
+        this.l1d = new CacheConfig(DEF_L1D_SIZE, DEF_L1D_BLOCK, DEF_L1D_ASSOC, DEF_L1D_LATENCY, DEF_POLICY);
+        this.l2 = new CacheConfig(DEF_L2_SIZE, DEF_L2_BLOCK, DEF_L2_ASSOC, DEF_L2_LATENCY, DEF_POLICY);
+        this.mainMemoryLatency = DEF_MEMORY_LATENCY;
     }
 
     // Returns how many cycles an instruction takes. Defaults to 1 if not found.
@@ -120,32 +139,35 @@ public class Config {
             }
         }
 
-        ReplacementPolicy policy = ReplacementPolicy.LRU;
-        String policyStr = props.getOrDefault("REPLACEMENT_POLICY", "LRU").toUpperCase();
+        ReplacementPolicy policy = DEF_POLICY;
+        String policyStr = props.getOrDefault("REPLACEMENT_POLICY", DEF_POLICY.name()).toUpperCase();
         if (policyStr.equals("FIFO"))
             policy = ReplacementPolicy.FIFO;
 
         l1i = new CacheConfig(
-                Integer.parseInt(props.getOrDefault("L1I_SIZE", "1024")),
-                Integer.parseInt(props.getOrDefault("L1I_BLOCK_SIZE", "64")),
-                Integer.parseInt(props.getOrDefault("L1I_ASSOCIATIVITY", "2")),
-                Integer.parseInt(props.getOrDefault("L1I_LATENCY", "1")),
+                Integer.parseInt(props.getOrDefault("L1I_SIZE", String.valueOf(DEF_L1I_SIZE))),
+                Integer.parseInt(props.getOrDefault("L1I_BLOCK_SIZE", String.valueOf(DEF_L1I_BLOCK))),
+                Integer.parseInt(props.getOrDefault("L1I_ASSOCIATIVITY", String.valueOf(DEF_L1I_ASSOC))),
+                Integer.parseInt(props.getOrDefault("L1I_LATENCY", String.valueOf(DEF_L1I_LATENCY))),
                 policy);
 
         l1d = new CacheConfig(
-                Integer.parseInt(props.getOrDefault("L1D_SIZE", "1024")),
-                Integer.parseInt(props.getOrDefault("L1D_BLOCK_SIZE", "64")),
-                Integer.parseInt(props.getOrDefault("L1D_ASSOCIATIVITY", "2")),
-                Integer.parseInt(props.getOrDefault("L1D_LATENCY", "1")),
+                Integer.parseInt(props.getOrDefault("L1D_SIZE", String.valueOf(DEF_L1D_SIZE))),
+                Integer.parseInt(props.getOrDefault("L1D_BLOCK_SIZE", String.valueOf(DEF_L1D_BLOCK))),
+                Integer.parseInt(props.getOrDefault("L1D_ASSOCIATIVITY", String.valueOf(DEF_L1D_ASSOC))),
+                Integer.parseInt(props.getOrDefault("L1D_LATENCY", String.valueOf(DEF_L1D_LATENCY))),
                 policy);
 
         l2 = new CacheConfig(
-                Integer.parseInt(props.getOrDefault("L2_SIZE", "8192")),
-                Integer.parseInt(props.getOrDefault("L2_BLOCK_SIZE", "64")),
-                Integer.parseInt(props.getOrDefault("L2_ASSOCIATIVITY", "4")),
-                Integer.parseInt(props.getOrDefault("L2_LATENCY", "4")),
+                Integer.parseInt(props.getOrDefault("L2_SIZE", String.valueOf(DEF_L2_SIZE))),
+                Integer.parseInt(props.getOrDefault("L2_BLOCK_SIZE", String.valueOf(DEF_L2_BLOCK))),
+                Integer.parseInt(props.getOrDefault("L2_ASSOCIATIVITY", String.valueOf(DEF_L2_ASSOC))),
+                Integer.parseInt(props.getOrDefault("L2_LATENCY", String.valueOf(DEF_L2_LATENCY))),
                 policy);
 
-        mainMemoryLatency = Integer.parseInt(props.getOrDefault("MEMORY_LATENCY", "100"));
+        mainMemoryLatency = Integer.parseInt(props.getOrDefault("MEMORY_LATENCY", String.valueOf(DEF_MEMORY_LATENCY)));
+
+        String fwdStr = props.getOrDefault("FORWARDING_ENABLED", String.valueOf(DEF_FORWARDING)).trim().toLowerCase();
+        forwardingEnabled = fwdStr.equals("true") || fwdStr.equals("1") || fwdStr.equals("yes");
     }
 }

@@ -16,10 +16,6 @@ public class Processor {
     private final Stats stats;
     private CacheHierarchy cache;
 
-    public Processor() {
-        this(new Config());
-    }
-
     public Processor(Config cfg) {
         this.mem = new Memory();
         this.rf = new RegisterFile();
@@ -42,8 +38,8 @@ public class Processor {
         run(result.getInstructions());
     }
 
-    /** Run from a plain instruction list (used by TestSuite). */
-    public void run(List<Instruction> program) {
+    /** Internal: run from a plain instruction list. */
+    private void run(List<Instruction> program) {
         new PipelineController().run(program, mem, rf, cfg, stats, cache);
     }
 
