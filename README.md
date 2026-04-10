@@ -139,6 +139,16 @@ FORWARDING_ENABLED = true    # true or false
 | L1 miss → L2 hit | `L1_LATENCY + L2_LATENCY` |
 | L1 miss → L2 miss | `L1_LATENCY + L2_LATENCY + MEMORY_LATENCY` |
 
+### Cache Policies
+
+**Replacement Policies:**
+- **LRU (Least Recently Used)** - Evicts the block that hasn't been accessed for the longest time.
+- **FIFO (First In, First Out)** - Evicts the block that was inserted earliest, regardless of subsequent accesses.
+
+**Write Policies:**
+- **Write-Back:** Dirty blocks are only written to the next level of memory when they are evicted.
+- **Write-Allocate:** On a store miss, the block is fetched into the cache first, then modified locally.
+
 ---
 
 ## 📊 Sample Output (`output.txt`)
@@ -270,9 +280,3 @@ src/
 - **Configurable:** All cache parameters, replacement policy, forwarding toggle, instruction latencies
 - **Observable:** `output.txt` prints both the active configuration and resulting statistics
 - **Extensible:** Adding new instructions or cache levels requires no structural redesign
-
----
-
-### RISC-V Pipeline Simulator – Phase 2
-
-**Cycle Accurate • Set-Associative Cache • BTFNT Predicted • Fully Configurable**
