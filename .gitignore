@@ -43,5 +43,10 @@ tmp_compile2/
 ### Generated runtime output ###
 console.txt
 output.txt
+all_results.txt
 test_results.txt
 tmp_sources.txt
+
+### Traces ###
+phase3_traces/
+traces_output/

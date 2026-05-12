@@ -1,0 +1,28 @@
+# RISC-V Processor Simulator — Configuration
+# Reporting config: LRU, 4KB pages, 16 DTLB, 64 frames, 4KB DM L1D, no L2
+
+[pipeline]
+forwarding_enabled = true
+
+[latencies]
+ADD = 1
+MUL = 3
+
+[memory]
+virtual_size_bytes = 536870912
+physical_size_bytes = 262144
+page_size_bytes = 4096
+
+[vm]
+dtlb_entries = 16
+tlb_hit_latency = 1
+page_walk_latency = 10
+page_fault_latency = 50
+replacement_policy = lru
+
+[cache]
+L1D_SIZE = 4096
+L1D_BLOCK_SIZE = 64
+L1D_ASSOCIATIVITY = 1
+L1D_LATENCY = 1
+MEMORY_LATENCY = 200

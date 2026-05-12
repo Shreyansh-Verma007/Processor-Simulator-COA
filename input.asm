@@ -23,60 +23,47 @@
 # --------------------------------------------------------- #
 
 .data
-    # Array of numbers to sort
-    array:  .word 29, 10, 14, 37, 13, 9, 5, 8, 2, 20
-    size:   .word 10
+arr: .word 9, 7, 5, 3, 1, 2, 4, 6, 8, 15, 14, 13, 12, 11, 10, 16, 17, 17, 18, 18, 18, 19, 20
+n:   .word 23
 
 .text
 .globl main
 main:
-    LA a0, array         # a0 = base address of the array
-    LA t0, size          # load address of size parameter
-    LW a1, 0(t0)         # a1 = size of array (n)
+    LA x1, arr          # base address of array
+    LA x2, n
+    LW x2, 0(x2)        # x2 = n
+    ADDI x3, x0, 0      # i = 0
 
-    LI t2, 2
-    BLT a1, t2, end_sort # If n < 2, the array is already sorted, so exit
+outer:
+    BGE x3, x2, end     # if i >= n → end
 
-outer_loop:
-    LI t0, 0             # t0 = swapped flag (0 = false, 1 = true)
-    LI t1, 0             # t1 = loop index (i = 0)
-    ADDI t2, a1, -1      # t2 = n - 1 (inner loop limit)
+    ADDI x4, x0, 0      # j = 0
+    SUB x5, x2, x3
+    ADDI x5, x5, -1     # limit = n - i - 1
 
-inner_loop:
-    BGE t1, t2, end_inner # if (i >= limit) exit inner loop
+inner:
+    BGE x4, x5, next    # if j >= limit → next outer
 
-    # Calculate array[i] address: base_addr + (i * 4)
-    # Simulator only supports R-type SLL (no SLLI)
-    LI t3, 2
-    SLL t4, t1, t3       # t4 = i * 4 
-    ADD t4, a0, t4       # t4 = address of array[i]
+    LI x10, 2
+    SLL x6, x4, x10     # j * 4
+    ADD x7, x1, x6      # &arr[j]
 
-    # Load elements
-    LW t5, 0(t4)         # t5 = array[i]
-    LW t6, 4(t4)         # t6 = array[i+1]
+    LW x8, 0(x7)        # arr[j]
+    LW x9, 4(x7)        # arr[j+1]
 
-    # If array[i] <= array[i+1], skip swap
-    # (Since there is no BLE instruction, we use BGE with reversed operands: array[i+1] >= array[i])
-    BGE t6, t5, skip_swap
+    # if arr[j] <= arr[j+1] skip swap
+    BGE x9, x8, skip
 
-    # Swap elements in memory
-    SW t6, 0(t4)         # array[i] = array[i+1]
-    SW t5, 4(t4)         # array[i+1] = array[i]
+    SW x9, 0(x7)
+    SW x8, 4(x7)
 
-    LI t0, 1             # swapped = true
+skip:
+    ADDI x4, x4, 1
+    BEQ x0, x0, inner   # unconditional jump
 
-skip_swap:
-    ADDI t1, t1, 1       # i++
-    BEQ zero, zero, inner_loop  # Unconditional branch to inner loop
+next:
+    ADDI x3, x3, 1
+    BEQ x0, x0, outer
 
-end_inner:
-    # If not swapped during this pass, the array is entirely sorted
-    BEQ t0, zero, end_sort 
-    
-    # Optimization: the last element is correctly placed, so we lower the sort limit (n--)
-    ADDI a1, a1, -1
-    LI t3, 2
-    BGE a1, t3, outer_loop # if limit >= 2, do another pass
-
-end_sort:
-    HALT                 # Terminate the simulator
+end:
+    HALT

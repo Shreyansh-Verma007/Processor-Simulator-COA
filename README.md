@@ -1,215 +1,329 @@
 # 🚀 RISC-V Pipeline Simulator
 
-**Phase 2 – Cache & Pipeline Integration**
-
-A modular, cycle-accurate 5-stage in-order RISC-V pipeline simulator written in Java.  
-Designed with clean architectural separation between compilation, core processor, pipeline stages, hazard resolution, and a variable-latency two-level cache hierarchy.
-
----
-
-## 🧠 Architectural Overview
-
-This simulator models a classic **5-stage RISC-V pipeline** with **BTFNT Branch Prediction** and a complete **Two-Level Set-Associative Cache Hierarchy**:
-
-```
-IF → ID → EX → MEM → WB
-│         │          │
-L1I       BTFNT      L1D
-│         predict    │
-L2 ◄────────────────►L2
-│                     │
-▼                     ▼
-      Main Memory
-```
-
-### Core Components
-
-| Component | File | Responsibility |
-|-----------|------|----------------|
-| `Processor` | `core/Processor.java` | Top-level orchestrator — builds cache hierarchy, dispatches to pipeline |
-| `PipelineController` | `pipeline_stages/PipelineController.java` | Cycle loop, stall arbitration, branch flush handling |
-| `HazardUnit` | `hazard/HazardUnit.java` | Detects RAW hazards, load-use conditions, multi-cycle stalls |
-| `ForwardingUnit` | `hazard/ForwardingUnit.java` | Resolves data dependencies via EX/MEM → MEM/WB bypassing |
-| `CacheHierarchy` | `cache/CacheHierarchy.java` | L1I, L1D, and unified L2 cache with write-back policy |
-| `CacheLevel` | `cache/CacheLevel.java` | Single set-associative cache level (LRU / FIFO eviction) |
-| `RegisterFile` | `core/RegisterFile.java` | 32-register architectural state (x0 hardwired to 0) |
-| `Memory` | `core/Memory.java` | 128 KB main memory (.text at `0x0000`, .data at `0x0400`) |
-| `Stats` | `core/Stats.java` | Collects cycles, stalls, flushes, IPC, cache hit/miss rates |
-| `Config` | `common/Config.java` | Instruction latencies, cache parameters, forwarding toggle |
+<p align="center">
+  <strong>A cycle-accurate, modular 5-stage in-order RISC-V processor simulator</strong><br>
+  with full cache hierarchy, virtual memory, hazard resolution, and trace replay<br><br>
+  <code>Java</code> · <code>Zero Dependencies</code> · <code>3,500+ Lines</code> · <code>42 Source Files</code> · <code>9 Packages</code>
+</p>
 
 ---
 
-## 🏗️ Pipeline Stages
-
-### 1️⃣ IF – Instruction Fetch
-- Fetches instructions through **L1I cache** → L2 → main memory
-- Variable latency: L1I hit = `L1I_LATENCY` cycles, miss adds L2 + memory latency
-- Falls back to direct list fetch when cache is disabled
-
-### 2️⃣ ID – Instruction Decode
-- Decodes opcode, registers, and immediates
-- Applies **BTFNT static branch prediction** (backward = taken, forward = not taken)
-- Sets up multi-cycle latency countdown (MUL = 3 cycles, DIV = 4)
-
-### 3️⃣ EX – Execute
-- ALU computation for all R/I-type instructions
-- Branch condition evaluation and misprediction detection
-- Operand forwarding resolution (EX/MEM → newMEM/WB → oldMEM/WB → register file)
-
-### 4️⃣ MEM – Memory Access
-- Load/Store through **L1D cache** → L2 → main memory
-- Variable latency with write-allocate, write-back policy
-- Supports `LW`, `LB`, `SW`, `SB`
-
-### 5️⃣ WB – Write Back
-- Writes results to `RegisterFile`
-- Enforces x0 immutability
-- Increments `instructionsRetired` counter
+> **What makes this different?** This isn't a textbook toy — it's a **hardware-faithful simulation** where every cycle is accounted for. Pipeline stalls from load-use hazards, cache miss penalties propagating through a two-level hierarchy, TLB misses triggering page walks, dirty page evictions on physical memory pressure — all modeled with the precision expected of a real RTL design, but expressed in clean, modular Java.
 
 ---
 
-## 🛠️ Build & Run
+## 🎯 Project Highlights
 
-### Compile
-```bash
-javac -sourcepath src -d bin src/Main.java
+- **Cycle-Accurate Pipeline** — 5-stage IF→ID→EX→MEM→WB with precise stall/flush/drain mechanics
+- **Complete Memory Hierarchy** — L1I + L1D + unified L2 caches, all set-associative with LRU/FIFO, write-back write-allocate
+- **Full Virtual Memory** — TLB, flat page table, page fault handling, frame allocation, LRU/FIFO page replacement, dirty eviction tracking
+- **Branch Prediction** — BTFNT (Backward-Taken, Forward-Not-Taken) static predictor with misprediction recovery
+- **Data Forwarding** — EX/MEM → EX and MEM/WB → EX bypass paths, configurable enable/disable for experimentation
+- **Trace Replay Engine** — Feed pre-recorded memory access traces through the VM + cache subsystem for workload analysis
+- **Two-Pass Assembler** — Full `.data`/`.text` section support, labels, pseudo-instructions, string literals
+- **Single Config File** — All parameters (latencies, cache geometry, VM sizes, replacement policies) in one INI-style file
+- **Modular Architecture** — Pipeline, cache, VM, compiler, and hazard units are independent packages sharing zero duplicated logic
+
+---
+
+## 📐 System Architecture
+
+### Pipeline Mode — Full Processor Simulation
+
+```
+ +----------------------------------------------------+
+ |                                                    |
+ |   input.asm ---> Lexer -> Parser -> Compiler       |
+ |                         |                          |
+ |                         v                          |
+ |          +------+------+------+------+------+      |
+ |          |  IF  |  ID  |  EX  | MEM  |  WB  |     |
+ |          +--+---+--+---+--+---+--+---+--+---+      |
+ |             |      |      |      |      |          |
+ |             v      |      |      v      v          |
+ |           L1I   HazardUnit    L1D   RegisterFile   |
+ |             |   ForwardingUnit  |                  |
+ |             +--------+---------+                   |
+ |                      v                             |
+ |                 L2 (Unified)                        |
+ |                      |                             |
+ |                      v                             |
+ |                 Main Memory                         |
+ |                                                    |
+ +----------------------------------------------------+
 ```
 
-### Run
-```bash
-# With default cache configuration
-java -cp bin Main input.asm
+### Trace Replay Mode — VM + Cache Workload Analysis
 
-# With custom cache configuration file
-java -cp bin Main input.asm cache_config.txt
+```
+ +----------------------------------------------------+
+ |                                                    |
+ |   trace.file ---> TraceParser -> TraceSimulator    |
+ |                                    |               |
+ |                   +----------------+-------+       |
+ |                   v                v       v       |
+ |                 TLB       RegisterFile  CacheHier  |
+ |                  |                      (L1D only) |
+ |                  v                         |       |
+ |             Page Table                     |       |
+ |          (flat, single-level)              |       |
+ |                  |                         |       |
+ |                  v                         v       |
+ |          Frame Allocator -----> Physical Memory    |
+ |          (LRU/FIFO eviction)                       |
+ |                                                    |
+ +----------------------------------------------------+
 ```
 
-### Output Files
-- **`output.txt`** — Simulation stats, active cache config, hit/miss rates
-- **`console.txt`** — Register dumps (ECALL) and compilation info
+> **Key design choice**: Both modes share the **same** `CacheHierarchy`, `RegisterFile`, `Memory`, `Config`, and `Stats` classes — zero code duplication between pipeline and trace paths.
+
+---
+
+## 🏗️ Pipeline Deep Dive
+
+### Stage-by-Stage Breakdown
+
+#### 1️⃣ IF — Instruction Fetch
+- Fetches the instruction word from `CacheHierarchy.fetchInstruction(pc)`
+- When cache is present: variable-latency fetch through L1I → L2 → Memory
+- When cache is absent: direct 1-cycle fetch from instruction list (Phase 1 compatibility)
+- On a cache miss, the **entire pipeline freezes** until the fetch completes
+
+#### 2️⃣ ID — Instruction Decode + Branch Prediction
+- Decodes opcode, register indices, and immediate values
+- Applies **BTFNT static branch prediction**:
+  - Backward branches (negative offset) → predicted **TAKEN** (optimizes loops)
+  - Forward branches (positive offset) → predicted **NOT TAKEN**
+- If predicted taken, **eagerly redirects PC** to the branch target
+- Sets up multi-cycle latency countdown for MUL (3c) and DIV (4c)
+
+#### 3️⃣ EX — Execute + Branch Resolution + Forwarding
+- Performs ALU computation (`ADD`, `SUB`, `MUL`, `DIV`, shifts, logic ops)
+- **Resolves branch conditions** by comparing actual outcome vs. BTFNT prediction
+- On misprediction: asserts `branchMispredicted`, provides recovery PC
+- **Forwarding priority chain**: EX/MEM → newMEM/WB → oldMEM/WB → register file
+- Multi-cycle instructions (MUL, DIV) emit NOP bubbles while counting down
+
+#### 4️⃣ MEM — Memory Access
+- Routes `LW`/`LB`/`SW`/`SB` through the cache hierarchy
+- Cache hit: returns data with L1D latency
+- Cache miss: block is fetched from L2 (or memory), installed in L1D, then data is returned
+- Dirty evictions from L1D are written back to L2 (or memory if no L2)
+- Without cache: direct memory access (backward compatible)
+
+#### 5️⃣ WB — Write Back
+- Writes ALU/load results to the destination register
+- Enforces **x0 immutability** (RISC-V convention: x0 is always 0)
+- Increments `instructionsRetired` counter for IPC calculation
+- Only non-NOP, non-flushed instructions reach this stage
+
+### Pipeline Hazard Resolution
+
+```
+ +-------------------+------------------------------------------------+
+ |                     Hazard Detection Matrix                        |
+ +-------------------+------------------------------------------------+
+ | Hazard Type       | Resolution Strategy                            |
+ +-------------------+------------------------------------------------+
+ | Load-Use (RAW)    | 1-cycle stall (even with forwarding enabled)   |
+ | RAW (forwarding)  | EX/MEM or MEM/WB bypass -- zero stall penalty  |
+ | RAW (no forward)  | Stall until producer reaches WB stage          |
+ | Multi-cycle EX    | Pipeline frozen while MUL/DIV counts down      |
+ | Branch mispredict | 2-cycle flush: squash IF_ID + ID_EX, fix PC    |
+ | JAL               | Flush + redirect to jump target                |
+ | IF cache miss     | Entire pipeline frozen for miss latency         |
+ | MEM cache miss    | Entire pipeline frozen (MEM prioritized)       |
+ | Concurrent miss   | MEM miss served first, then IF miss (serial)   |
+ +-------------------+------------------------------------------------+
+```
+
+---
+
+## 🗄️ Cache Hierarchy
+
+### Two-Level Set-Associative Design
+
+```
+  IF Stage ---> L1I ---+
+                       +---> L2 (Unified) ---> Main Memory (200 cycles)
+ MEM Stage ---> L1D ---+
+```
+
+| Property | L1I (default) | L1D (default) | L2 (default) |
+|----------|:---:|:---:|:---:|
+| Size | 1 KB | 1 KB | 8 KB |
+| Block Size | 64 B | 64 B | 64 B |
+| Associativity | 2-way | 2-way | 4-way |
+| Hit Latency | 5 cycles | 5 cycles | 50 cycles |
+| Write Policy | — | Write-back, WA | Write-back |
+| Replacement | LRU / FIFO | LRU / FIFO | LRU / FIFO |
+
+**Key implementation details:**
+- **L2 is optional** — when set to null (trace mode), L1 misses go directly to main memory
+- **Null-safe L1I/L1D** — trace mode uses only L1D; pipeline mode uses both
+- **Write-back, write-allocate** — on a write miss, the block is fetched into L1, modified, and marked dirty. Evictions cascade: L1 → L2 → Memory
+- **Single-stat-count policy** — each pipeline request counts as exactly ONE L1 access. Internal block fills and write-backs use no-stats methods to avoid inflating counters
+
+---
+
+## 🧠 Virtual Memory Subsystem
+
+### Translation Pipeline
+
+```
+  Virtual Address
+       |
+       v
+  +-----------+    hit     +------------------+
+  |    TLB    | ---------> | Physical Frame   | ---> Cache Access (PIPT)
+  |  (16 ent) |            +------------------+
+  +-----+-----+
+        | miss (+10 cycles page walk)
+        v
+  +-------------+  valid   +------------------+
+  | Page Table  | -------> | Physical Frame   | ---> Insert into TLB
+  |   (flat)    |          +------------------+
+  +------+------+
+         | invalid (+50 cycles page fault)
+         v
+  +----------------+
+  | Frame Alloc    | ---> Free frame available? Use it.
+  |                | ---> No free frames? Evict via LRU/FIFO
+  |                |        '--> Dirty? Track writeback count
+  +----------------+
+```
+
+### VM Statistics Tracked
+
+| Metric | Description |
+|--------|-------------|
+| TLB Hits / Misses | Counts and hit rate for the data TLB |
+| Page Walks | Number of page table lookups on TLB miss |
+| Page Faults | First-access faults requiring frame allocation |
+| Page Evictions | Pages evicted when physical memory is full |
+| Dirty Evictions | Evictions of modified pages (require writeback) |
+| Translation Penalty | Total cycles spent on address translation |
+
+---
+
+## 📊 Performance Results
+
+### Pipeline Mode — `input.asm`
+
+> 22-instruction program with loops, branches, loads/stores, and arithmetic
+
+**Config:** L1I=1KB/2-way/5c, L1D=4KB/1-way/1c, L2=8KB/4-way/50c, Mem=200c, Forwarding=ON
+
+```
+ +==============================================+
+ |         Pipeline Simulation Results          |
+ +==============================================+
+ |  Cycles              : 15,291                |
+ |  Instructions Retired: 2,514                 |
+ |  IPC                 : 0.164                 |
+ |  Stalls              : 12,289                |
+ |  Branch Flushes      : 242                   |
+ +==============================================+
+ |  L1I : 2,758 hits, 2 misses  (MR: 0.001)    |
+ |  L1D : 575 hits, 2 misses    (MR: 0.003)    |
+ |  L2  : 0 hits, 4 misses      (MR: 1.000)    |
+ +==============================================+
+```
+
+### Trace Replay Mode — 10 Traces (~715K instructions each)
+
+**Config:** LRU, 16 DTLB entries, 64 physical frames (256KB), 4KB direct-mapped L1D, no L2, PIPT
+
+| Trace | Cycles | IPC | TLB Hit Rate | Page Faults | Evictions | Dirty Evictions | L1D Hit Rate |
+|:-----:|-------:|:---:|:------------:|:-----------:|:---------:|:---------------:|:------------:|
+| 01 | 73,004,328 | 0.0098 | **100.0%** | 8 | 0 | 0 | 0.0% |
+| 02 | 73,002,768 | 0.0098 | **100.0%** | 16 | 0 | 0 | 0.0% |
+| 03 | 76,586,314 | 0.0093 | 0.0% | 17 | 0 | 0 | 0.0% |
+| 04 | 72,543,936 | 0.0099 | 49.9% | 32 | 0 | 0 | 3.1% |
+| 05 | 76,439,624 | 0.0094 | 3.6% | 64 | 0 | 0 | 0.0% |
+| 06 | 22,916,096 | **0.0312** | 0.0% | 357,864 | 357,800 | 107,798 | **99.98%** |
+| 07 | 76,142,752 | 0.0094 | 58.4% | 59,900 | 59,836 | 57,100 | 1.9% |
+| 08 | 22,916,480 | **0.0312** | 0.0% | 357,870 | 357,806 | 71,269 | **99.98%** |
+| 09 | **94,479,264** | 0.0076 | 0.0% | 357,876 | 357,812 | 125,515 | 0.0% |
+| 10 | 70,292,554 | 0.0102 | 79.7% | 1,716 | 1,652 | 1,652 | 4.9% |
+
+### Key Observations
+
+**Traces 1–2 (Best TLB, Worst Cache):**
+Near-perfect TLB locality (100% hit rate) with only 8–16 unique pages. However, 100% L1D miss rate — the 8-page stride pattern creates systematic cache conflicts in the 4KB direct-mapped L1D. Every memory access pays the full 200-cycle memory penalty.
+
+**Traces 6, 8 (Worst VM, Best Cache — The Paradox):**
+Maximum page fault pressure — every single L/S instruction triggers a page fault (357K+ total), overwhelming 64 physical frames. Yet paradoxically, these traces achieve the **best IPC (0.0312)** because after translation, physical addresses map to a small set of cache lines, yielding 99.98% L1D hit rate. The expensive translation is offset by nearly free cache access.
+
+**Trace 9 (Absolute Worst Case):**
+Zero TLB hits combined with 100% L1D miss rate. Every memory operation pays: TLB miss (11 cycles) + page fault (50 cycles) + cache miss (201 cycles). Results in the highest total cycle count: **94.5 million cycles** for 715K instructions.
+
+**Trace 10 (Best Overall):**
+Good TLB locality (79.7%), only 1,716 page faults, and moderate cache reuse. Achieves the lowest cycle count: **70.3 million**.
+
+---
+
+## 📜 Supported ISA
+
+| Type | Instructions | Description |
+|------|-------------|-------------|
+| **R-Type** | `ADD`, `SUB`, `MUL`, `DIV`, `AND`, `OR`, `XOR`, `SLL`, `SRL` | Two-source register arithmetic and logic |
+| **I-Type** | `ADDI`, `LI`, `LW`, `LB` | Immediate arithmetic and memory loads |
+| **S-Type** | `SW`, `SB` | Memory stores (word and byte) |
+| **B-Type** | `BEQ`, `BNE`, `BLT`, `BGE` | Conditional branches with BTFNT prediction |
+| **J-Type** | `JAL` | Jump and link (saves return address) |
+| **System** | `ECALL`, `HALT` | Register dump and simulation termination |
+
+### Assembler Features
+
+- **Two-pass compilation** with label resolution for forward references
+- **`.data` section** support: `.word`, `.byte`, `.half`, `.space`, `.ascii`, `.asciiz`
+- **Memory layout**: `.text` at `0x0000`, `.data` at `0x0400`
+- **32-bit instruction encoding** for cache-based fetch
 
 ---
 
 ## ⚙️ Configuration
 
-### Cache Configuration File
+All parameters live in a **single INI-style config file** — nothing is hardcoded:
 
-Create a `cache_config.txt` with `KEY = VALUE` pairs (lines starting with `#` are comments):
+```ini
+[pipeline]
+forwarding_enabled = true
 
-```properties
-# ── L1 Instruction Cache ──
-L1I_SIZE          = 1024    # Total size in bytes
-L1I_BLOCK_SIZE    = 64      # Block (cache line) size in bytes
-L1I_ASSOCIATIVITY = 2       # Number of ways per set
-L1I_LATENCY       = 5       # Hit latency in cycles
+[latencies]
+ADD = 1
+MUL = 3
+DIV = 4
 
-# ── L1 Data Cache ──
-L1D_SIZE          = 1024
-L1D_BLOCK_SIZE    = 64
-L1D_ASSOCIATIVITY = 2
-L1D_LATENCY       = 5
+[memory]
+virtual_size_bytes = 536870912      # 512 MB virtual address space
+physical_size_bytes = 262144        # 64 frames × 4 KB
+page_size_bytes = 4096              # 4 KB pages
 
-# ── L2 Unified Cache ──
-L2_SIZE           = 8192
-L2_BLOCK_SIZE     = 64
-L2_ASSOCIATIVITY  = 4
-L2_LATENCY        = 50
+[vm]
+dtlb_entries = 16
+tlb_hit_latency = 1
+page_walk_latency = 10
+page_fault_latency = 50
+replacement_policy = lru            # lru or fifo
 
-# ── Main Memory & Policies ──
-MEMORY_LATENCY     = 200     # Main memory access latency in cycles
-REPLACEMENT_POLICY = LRU     # LRU or FIFO
-FORWARDING_ENABLED = true    # true or false
+[cache]
+L1I_SIZE = 1024
+L1I_BLOCK_SIZE = 64
+L1I_ASSOCIATIVITY = 2
+L1I_LATENCY = 5
+L1D_SIZE = 4096
+L1D_BLOCK_SIZE = 64
+L1D_ASSOCIATIVITY = 1
+L1D_LATENCY = 1
+L2_SIZE = 8192
+L2_BLOCK_SIZE = 64
+L2_ASSOCIATIVITY = 4
+L2_LATENCY = 50
+MEMORY_LATENCY = 200
+REPLACEMENT_POLICY = LRU
 ```
-
-### Instruction Latencies (in `Config.java`)
-
-| Instruction | Cycles |
-|-------------|--------|
-| ADD, SUB, ADDI, LI, SLL, SRL, XOR, OR, AND | 1 |
-| MUL | 3 |
-| DIV | 4 |
-| LW, LB, SW, SB | 1 (+ cache access latency) |
-| BEQ, BNE, BLT, BGE, JAL | 1 |
-
-### Latency Model
-
-| Scenario | Total Latency |
-|----------|---------------|
-| L1 hit | `L1_LATENCY` |
-| L1 miss → L2 hit | `L1_LATENCY + L2_LATENCY` |
-| L1 miss → L2 miss | `L1_LATENCY + L2_LATENCY + MEMORY_LATENCY` |
-
-### Cache Policies
-
-**Replacement Policies:**
-- **LRU (Least Recently Used)** - Evicts the block that hasn't been accessed for the longest time.
-- **FIFO (First In, First Out)** - Evicts the block that was inserted earliest, regardless of subsequent accesses.
-
-**Write Policies:**
-- **Write-Back:** Dirty blocks are only written to the next level of memory when they are evicted.
-- **Write-Allocate:** On a store miss, the block is fetched into the cache first, then modified locally.
-
----
-
-## 📊 Sample Output (`output.txt`)
-
-```
-=== Simulation Stats ===
-Cycles             : 4449
-Stalls             : 3823
-Branch Flushes     : 23
-Instructions Retired: 576
-IPC                : 0.129
-
---- Cache Configuration ---
-L1I  : 1024B, 64B blocks, 2-way, 5-cycle, LRU
-L1D  : 1024B, 64B blocks, 2-way, 5-cycle, LRU
-L2   : 8192B, 64B blocks, 4-way, 50-cycle, LRU
-Memory Latency: 200 cycles
-Forwarding    : enabled
-
---- Cache Statistics ---
-L1I  : 601 hits, 2 misses, miss rate 0.003
-L1D  : 154 hits, 1 misses, miss rate 0.006
-L2   : 0 hits, 3 misses, miss rate 1.000
-```
-
----
-
-## 📜 Supported Instructions
-
-| Type | Instructions |
-|------|-------------|
-| 🧮 R-Type | `ADD`, `SUB`, `MUL`, `DIV`, `SLL`, `SRL`, `XOR`, `OR`, `AND` |
-| 🔢 I-Type | `ADDI` |
-| 🏷️ Pseudo | `LI`, `LA`, `MV`, `NOP` |
-| 💾 Memory | `LW`, `LB`, `SW`, `SB` |
-| 🌿 Branch | `BEQ`, `BNE`, `BLT`, `BGE` (with BTFNT prediction) |
-| 🔀 Jump | `JAL` |
-| 🛑 System | `ECALL`, `HALT` |
-
-### Registers
-Both numeric (`x0`–`x31`) and ABI names (`zero`, `ra`, `sp`, `a0`–`a7`, `t0`–`t6`, `s0`–`s11`) are supported.
-
-### Data Directives (`.data` section)
-`.word`, `.half`, `.byte`, `.space`, `.zero`, `.ascii`, `.asciiz`, `.string`, `.align`, `.globl`
-
----
-
-## ⚠️ Hazard Handling
-
-### Data Hazards (RAW)
-- **With forwarding enabled:** EX/MEM → MEM/WB bypass paths resolve most RAW hazards. Load-use hazards still incur a 1-cycle stall.
-- **With forwarding disabled:** All RAW hazards from EX and MEM stages produce pipeline stalls.
-
-### Control Hazards
-- **BTFNT prediction:** Backward branches predicted taken, forward branches predicted not taken (applied in ID stage).
-- **Misprediction penalty:** 2-cycle flush (IF_ID and ID_EX registers squashed).
-- **JAL:** Always flushes 1 cycle (no prediction, resolved in EX).
-
-### Cache Miss Stalls
-- **MEM priority:** If both IF and MEM have cache misses in the same cycle, MEM (data) stall is served first, then IF (instruction).
-- **Pipeline freeze:** During cache stalls, the entire pipeline is frozen — no stage advances.
 
 ---
 
@@ -217,66 +331,115 @@ Both numeric (`x0`–`x31`) and ABI names (`zero`, `ra`, `sp`, `a0`–`a7`, `t0`
 
 ```
 src/
-├── Main.java                    Entry point
-├── cache/
-│   ├── AccessResult.java        Cache access result (data + latency)
-│   ├── CacheConfig.java         Immutable cache-level config with validation
-│   ├── CacheHierarchy.java      L1I → L2, L1D → L2 → Memory routing
-│   ├── CacheLevel.java          Set-associative cache (LRU/FIFO eviction)
-│   └── CacheLine.java           Single cache line (valid, dirty, tag, data)
-├── common/
-│   ├── Config.java              Latencies, cache defaults, forwarding toggle
-│   ├── Instruction.java         Immutable instruction record (Java record)
-│   ├── InstructionEncoder.java  32-bit encode/decode for memory storage
-│   └── Opcode.java              All supported opcodes with utility methods
-├── compiler/
-│   ├── CompilationResult.java   Instructions + data items from assembly
-│   ├── Compiler.java            Two-pass compiler (.data + .text)
-│   ├── DataItem.java            Bytes to write at a memory address
-│   ├── Lexer.java               Line tokenizer (strips comments)
-│   └── Parser.java              Assembly → Instruction parser
-├── core/
-│   ├── Memory.java              128 KB byte-addressable memory
-│   ├── Processor.java           Top-level simulator controller
-│   ├── RegisterFile.java        32 integer registers (x0 = 0)
-│   └── Stats.java               Performance + cache metrics
-├── hazard/
-│   ├── ForwardResult.java       Enum: NONE, FROM_EX_MEM, FROM_MEM_WB
-│   ├── ForwardingUnit.java      Data bypass path resolution
-│   └── HazardUnit.java          Stall detection (RAW, load-use, multi-cycle)
-├── pipeline_registers/
-│   ├── IF_ID.java               Instruction + PC + fetch latency
-│   ├── ID_EX.java               Decoded fields + BTFNT prediction state
-│   ├── EX_MEM.java              ALU result + branch resolution
-│   └── MEM_WB.java              Final result + memory latency
-└── pipeline_stages/
-    ├── IF_Stage.java            Fetch via L1I cache or direct list
-    ├── ID_Stage.java            Decode + BTFNT prediction
-    ├── EX_Stage.java            ALU + forwarding + branch misprediction
-    ├── MEM_Stage.java           Load/Store via L1D cache
-    ├── WB_Stage.java            Register write-back
-    └── PipelineController.java  Cycle orchestration + stall/flush logic
+├── Main.java                        Entry point — pipeline, trace, batch modes
+│
+├── common/                          Shared infrastructure
+│   ├── Config.java                  Unified INI config parser (pipeline + VM + cache)
+│   ├── Instruction.java             Instruction record (opcode, rd, rs1, rs2, imm)
+│   ├── InstructionEncoder.java      32-bit encode/decode for memory-backed fetch
+│   ├── Opcode.java                  21 opcodes with isBranch(), isLoad(), writesBack()
+│   └── StatsPrinter.java            Centralized stats formatting for all modes
+│
+├── compiler/                        Two-pass RISC-V assembler
+│   ├── Compiler.java                Label resolution + instruction emission
+│   ├── CompilationResult.java       Instructions + data items output
+│   ├── DataItem.java                .data segment byte arrays
+│   ├── Lexer.java                   Line tokenizer
+│   └── Parser.java                  Instruction parser with symbol resolution
+│
+├── core/                            Processor fundamentals
+│   ├── Processor.java               Top-level orchestrator
+│   ├── Memory.java                  Configurable word-addressable memory
+│   ├── RegisterFile.java            32 registers, x0 hardwired to 0
+│   └── Stats.java                   Unified metrics (pipeline + cache + VM)
+│
+├── cache/                           Memory hierarchy
+│   ├── CacheHierarchy.java          L1I → [L2] → Memory (null-safe L2 support)
+│   ├── CacheLevel.java              Set-associative cache with LRU/FIFO eviction
+│   ├── CacheConfig.java             Immutable cache geometry specification
+│   ├── CacheLine.java               Line: valid, dirty, tag, data[], timestamps
+│   └── AccessResult.java            Access output: data word + latency cycles
+│
+├── pipeline_stages/                 5-stage pipeline
+│   ├── PipelineController.java      Main simulation loop with stall/flush logic
+│   ├── IF_Stage.java                Cache-aware instruction fetch
+│   ├── ID_Stage.java                Decode + BTFNT branch prediction
+│   ├── EX_Stage.java                ALU + branch resolution + forwarding
+│   ├── MEM_Stage.java               Load/store through cache hierarchy
+│   └── WB_Stage.java                Register writeback + retirement
+│
+├── pipeline_registers/              Inter-stage communication
+│   ├── IF_ID.java, ID_EX.java       Carry decoded fields + prediction data
+│   ├── EX_MEM.java                  Carry ALU results + branch resolution
+│   └── MEM_WB.java                  Carry final results for writeback
+│
+├── hazard/                          Pipeline correctness
+│   ├── HazardUnit.java              RAW, load-use, multi-cycle stall detection
+│   ├── ForwardingUnit.java          EX/MEM and MEM/WB bypass path logic
+│   └── ForwardResult.java           Forwarding decision enum
+│
+├── trace/                           Trace replay subsystem
+│   ├── TraceSimulator.java          VM + cache simulation engine
+│   ├── TraceParser.java             L/S/ADD/MUL trace file parser
+│   └── TraceInstruction.java        Trace instruction data class
+│
+└── vm/                              Virtual memory
+    ├── VirtualMemoryUnit.java       TLB → PageTable → Fault → Allocate
+    ├── TLB.java                     Fully-associative, LRU/FIFO eviction
+    ├── TLBEntry.java                VPN → PFN mapping + dirty bit
+    ├── PageTable.java               Flat table indexed by virtual page number
+    ├── PageTableEntry.java          Valid, frame, dirty, LRU/FIFO timestamps
+    └── TranslationResult.java       Physical address + translation latency
 ```
 
 ---
 
-## ⚖️ Architectural Assumptions
+## 🛠️ Build & Run
 
-1. **Half-cycle write-back:** Stages tick in reverse order (WB→MEM→EX→ID→IF), so WB writes to the register file before ID reads in the same cycle.
-2. **BTFNT prediction:** Applied in ID stage. Backward branches redirect PC immediately; mispredictions are caught in EX and cause a 2-cycle flush.
-3. **Cache miss serialization:** Concurrent IF + MEM misses are serialized (MEM first). Models a shared L2 with single-port memory arbitration.
-4. **Write-back, write-allocate:** On a store miss, the block is fetched into cache, then modified. Dirty evictions propagate down the hierarchy.
-5. **HALT drain:** After HALT is detected in EX, 3 drain cycles allow MEM and WB to retire trailing instructions.
-6. **x0 immutability:** WB stage rejects all writes to x0.
-7. **Forwarding precedence:** EX/MEM > MEM/WB when both match the same source register.
-8. **64-byte blocks = 16 instructions:** Block size of 64 bytes holds 16 four-byte encoded instructions.
+### Compile
+
+```bash
+javac -d out -sourcepath src src/Main.java
+```
+
+### Pipeline Mode
+
+```bash
+java -cp out Main input.asm                    # direct memory (no cache)
+java -cp out Main input.asm config.txt         # with cache + VM config
+```
+
+### Trace Replay
+
+```bash
+java -cp out Main --trace <file> config.txt          # single trace
+java -cp out Main --trace-all <dir> config.txt       # batch (all .trace files)
+```
+
+### Output Files
+
+| File | Contents |
+|------|----------|
+| `console.txt` | Cycle-by-cycle pipeline execution log |
+| `output.txt` | Final simulation statistics |
+| `all_results.txt` | Consolidated batch trace results |
 
 ---
 
-## 🎯 Design Philosophy
+## ⚖️ Architectural Decisions
 
-- **SOLID principles:** Single responsibility per class, consolidated defaults (DRY), private internals, validated config
-- **Hardware-accurate:** Cycle-precise simulation, proper stall/flush semantics
-- **Configurable:** All cache parameters, replacement policy, forwarding toggle, instruction latencies
-- **Observable:** `output.txt` prints both the active configuration and resulting statistics
-- **Extensible:** Adding new instructions or cache levels requires no structural redesign
+| Decision | Rationale |
+|----------|-----------|
+| **Reverse-order stage ticking** (WB→IF) | Simulates half-cycle write-first/read-second — WB writes are visible to ID in the same cycle |
+| **Serialized cache miss handling** | Models a single-ported shared memory bus (MEM miss prioritized over IF miss) |
+| **BTFNT in ID, resolution in EX** | Keeps branch prediction simple while allowing 2-cycle recovery on mispredict |
+| **3-cycle HALT drain** | Lets in-flight MEM/WB instructions retire gracefully before termination |
+| **Null-safe CacheHierarchy** | L2=null makes L1 misses go to memory — eliminates need for separate trace cache class |
+| **Flat page table** | O(1) lookup by VPN index; sufficient for 32-bit addresses with 4KB pages |
+| **Unified Stats class** | Both pipeline and trace modes write to the same metrics object — consistent reporting |
+
+---
+
+<p align="center">
+  <strong>Cycle Accurate · Set-Associative Cache · Virtual Memory · BTFNT Predicted · Trace Replay · Modular</strong>
+</p>
