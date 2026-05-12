@@ -93,7 +93,7 @@ public class CacheLevel {
     }
 
     /** Read a word without counting stats. */
-    Integer readWordNoStats(int address) {
+    public Integer readWordNoStats(int address) {
         CacheLine line = lookupNoStats(address);
         if (line == null)
             return null;
@@ -101,7 +101,7 @@ public class CacheLevel {
     }
 
     /** Write a word without counting stats (write-back). */
-    boolean writeWordNoStats(int address, int value) {
+    public boolean writeWordNoStats(int address, int value) {
         CacheLine line = lookupNoStats(address);
         if (line == null)
             return false;

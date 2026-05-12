@@ -3,9 +3,12 @@ package cache;
 import core.Memory;
 
 /**
- * Two-level cache hierarchy:
- * L1I (instruction) ──→ L2 (unified) ──→ Main Memory
- * L1D (data) ──→ L2 (unified) ──→ Main Memory
+ * Multi-level cache hierarchy with optional L2:
+ *   L1I (instruction) ──→ [L2 (unified)] ──→ Main Memory
+ *   L1D (data)        ──→ [L2 (unified)] ──→ Main Memory
+ *
+ * When L2 is null (e.g., trace replay mode), L1 misses go directly
+ * to main memory — eliminating the need for a separate trace cache.
  *
  * On a miss at any level, the block is fetched from the next level,
  * and the total access latency is the sum of all levels traversed.
@@ -17,46 +20,58 @@ import core.Memory;
  */
 public class CacheHierarchy {
 
-    private final CacheLevel l1i;
+    private final CacheLevel l1i;   // may be null in trace mode
     private final CacheLevel l1d;
-    private final CacheLevel l2;
+    private final CacheLevel l2;    // null = no L2, direct to memory
     private final Memory memory;
     private final int memoryLatency;
 
     public CacheHierarchy(CacheConfig l1iCfg, CacheConfig l1dCfg,
             CacheConfig l2Cfg, int memoryLatency, Memory memory) {
-        this.l1i = new CacheLevel(l1iCfg);
-        this.l1d = new CacheLevel(l1dCfg);
-        this.l2 = new CacheLevel(l2Cfg);
+        this.l1i = (l1iCfg != null) ? new CacheLevel(l1iCfg) : null;
+        this.l1d = (l1dCfg != null) ? new CacheLevel(l1dCfg) : null;
+        this.l2 = (l2Cfg != null) ? new CacheLevel(l2Cfg) : null;
         this.memory = memory;
         this.memoryLatency = memoryLatency;
     }
 
     // ── Instruction fetch (IF stage) ─────────────────────────────────────
 
-    /** Fetch a single instruction word through L1I → L2 → Memory. */
+    /** Fetch a single instruction word through L1I → [L2] → Memory. */
     public AccessResult fetchInstruction(int address) {
+        if (l1i == null) {
+            // No instruction cache — read directly from memory
+            return new AccessResult(memory.readWord(address), 1);
+        }
         return readThrough(l1i, address);
     }
 
     // ── Data access (MEM stage) ──────────────────────────────────────────
 
-    /** Read a word of data through L1D → L2 → Memory. */
+    /** Read a word of data through L1D → [L2] → Memory. */
     public AccessResult readData(int address) {
+        if (l1d == null) {
+            return new AccessResult(memory.readWord(address), 1);
+        }
         return readThrough(l1d, address);
     }
 
-    /** Read a byte of data through L1D → L2 → Memory. */
+    /** Read a byte of data through L1D → [L2] → Memory. */
     public AccessResult readDataByte(int address) {
-        AccessResult wordResult = readThrough(l1d, (address / 4) * 4);
+        AccessResult wordResult = readData((address / 4) * 4);
         int word = wordResult.data;
         int bytePos = (address % 4) * 8;
         int byteVal = (word >> bytePos) & 0xFF;
         return new AccessResult(byteVal, wordResult.latencyCycles);
     }
 
-    /** Write a word of data through L1D → L2 → Memory (write-allocate). */
+    /** Write a word of data through L1D → [L2] → Memory (write-allocate). */
     public AccessResult writeData(int address, int value) {
+        if (l1d == null) {
+            memory.writeWord(address, value);
+            return new AccessResult(0, 1);
+        }
+
         // Single L1D lookup for stats
         CacheLine line = l1d.lookup(address);
 
@@ -78,8 +93,18 @@ public class CacheHierarchy {
         return new AccessResult(0, latency);
     }
 
-    /** Write a byte of data through L1D → L2 → Memory (write-allocate). */
+    /** Write a byte of data through L1D → [L2] → Memory (write-allocate). */
     public AccessResult writeDataByte(int address, int value) {
+        if (l1d == null) {
+            // Read-modify-write directly to memory
+            int wordAddr = (address / 4) * 4;
+            int word = memory.readWord(wordAddr);
+            int bytePos = (address % 4) * 8;
+            word = (word & ~(0xFF << bytePos)) | ((value & 0xFF) << bytePos);
+            memory.writeWord(wordAddr, word);
+            return new AccessResult(0, 1);
+        }
+
         int wordAddress = (address / 4) * 4;
 
         // Single L1D lookup for stats
@@ -127,11 +152,12 @@ public class CacheHierarchy {
         return new AccessResult(data, latency);
     }
 
-    // ── Block fetch: L2 → Memory → install into L1 ──────────────────────
+    // ── Block fetch: [L2] → Memory → install into L1 ────────────────────
 
     /**
      * Fetch a block from L2 (or memory) and install it into the given L1 cache.
-     * Counts exactly ONE L2 access for stats.
+     * If L2 is present, counts exactly ONE L2 access for stats.
+     * If L2 is null, goes directly to memory.
      */
     private FetchResult fetchBlockToL1(CacheLevel l1, int address) {
         int blockSizeWords = l1.getBlockSizeWords();
@@ -139,35 +165,47 @@ public class CacheHierarchy {
         int[] block = new int[blockSizeWords];
         int latency = 0;
 
-        // Single L2 lookup for stats
-        Integer l2Probe = l2.readWord(blockStart);
+        if (l2 != null) {
+            // L2 is present — try L2 first
+            Integer l2Probe = l2.readWord(blockStart);
 
-        if (l2Probe != null) {
-            // L2 hit — read the full block using no-stats methods
-            latency = l2.getConfig().latency;
-            block[0] = l2Probe;
-            for (int i = 1; i < blockSizeWords; i++) {
-                Integer w = l2.readWordNoStats(blockStart + i * 4);
-                block[i] = (w != null) ? w : 0;
+            if (l2Probe != null) {
+                // L2 hit — read the full block using no-stats methods
+                latency = l2.getConfig().latency;
+                block[0] = l2Probe;
+                for (int i = 1; i < blockSizeWords; i++) {
+                    Integer w = l2.readWordNoStats(blockStart + i * 4);
+                    block[i] = (w != null) ? w : 0;
+                }
+            } else {
+                // L2 miss — fetch from main memory
+                latency = l2.getConfig().latency + memoryLatency;
+                for (int i = 0; i < blockSizeWords; i++) {
+                    block[i] = memory.readWord(blockStart + i * 4);
+                }
+                // Install into L2 (no stats for the insert itself)
+                int[] l2Block = fetchMemoryBlock(l2, address);
+                CacheLevel.EvictionResult l2Evict = l2.insert(address, l2Block);
+                if (l2Evict != null) {
+                    writeBackToMemory(l2Evict);
+                }
             }
         } else {
-            // L2 miss — fetch from main memory
-            latency = l2.getConfig().latency + memoryLatency;
+            // No L2 — fetch directly from main memory
+            latency = memoryLatency;
             for (int i = 0; i < blockSizeWords; i++) {
                 block[i] = memory.readWord(blockStart + i * 4);
-            }
-            // Install into L2 (no stats for the insert itself)
-            int[] l2Block = fetchMemoryBlock(l2, address);
-            CacheLevel.EvictionResult l2Evict = l2.insert(address, l2Block);
-            if (l2Evict != null) {
-                writeBackToMemory(l2Evict);
             }
         }
 
         // Install into L1
         CacheLevel.EvictionResult l1Evict = l1.insert(address, block);
         if (l1Evict != null) {
-            writeBackToL2(l1Evict);
+            if (l2 != null) {
+                writeBackToL2(l1Evict);
+            } else {
+                writeBackToMemory(l1Evict);
+            }
         }
 
         return new FetchResult(block, latency);
@@ -236,14 +274,17 @@ public class CacheHierarchy {
 
     // ── Stats accessors ──────────────────────────────────────────────────
 
+    /** Returns L1I cache level, or null if not configured. */
     public CacheLevel getL1I() {
         return l1i;
     }
 
+    /** Returns L1D cache level, or null if not configured. */
     public CacheLevel getL1D() {
         return l1d;
     }
 
+    /** Returns L2 cache level, or null if not configured (e.g., trace mode). */
     public CacheLevel getL2() {
         return l2;
     }

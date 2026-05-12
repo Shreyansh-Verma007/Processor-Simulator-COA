@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-// Configures instruction latencies, forwarding, and cache parameters.
+// Configures instruction latencies, forwarding, cache parameters, and VM settings.
 public class Config {
     private Map<Opcode, Integer> latencies;
     private boolean forwardingEnabled;
@@ -39,6 +39,16 @@ public class Config {
     private CacheConfig l1d;
     private CacheConfig l2;
     private int mainMemoryLatency;
+
+    // ── Virtual Memory parameters ────────────────────────────────────────
+    private int virtualSizeBytes = 65536;       // 64 KB default
+    private int physicalSizeBytes = 16384;      // 16 KB default
+    private int pageSizeBytes = 4096;           // 4 KB default
+    private int dtlbEntries = 4;
+    private int tlbHitLatency = 1;
+    private int pageWalkLatency = 10;
+    private int pageFaultLatency = 50;
+    private String vmReplacementPolicy = "fifo";
 
     public Config() {
         this.latencies = new HashMap<>();
@@ -117,28 +127,167 @@ public class Config {
         return mainMemoryLatency;
     }
 
+    // ── Virtual Memory accessors ─────────────────────────────────────────
+
+    public int getVirtualSizeBytes() {
+        return virtualSizeBytes;
+    }
+
+    public int getPhysicalSizeBytes() {
+        return physicalSizeBytes;
+    }
+
+    public int getPageSizeBytes() {
+        return pageSizeBytes;
+    }
+
+    public int getDtlbEntries() {
+        return dtlbEntries;
+    }
+
+    public int getTlbHitLatency() {
+        return tlbHitLatency;
+    }
+
+    public int getPageWalkLatency() {
+        return pageWalkLatency;
+    }
+
+    public int getPageFaultLatency() {
+        return pageFaultLatency;
+    }
+
+    public String getVmReplacementPolicy() {
+        return vmReplacementPolicy;
+    }
+
     /**
-     * Load cache configuration from a key=value text file.
-     * Keys: L1I_SIZE, L1I_BLOCK_SIZE, L1I_ASSOCIATIVITY, L1I_LATENCY,
-     * L1D_SIZE, L1D_BLOCK_SIZE, L1D_ASSOCIATIVITY, L1D_LATENCY,
-     * L2_SIZE, L2_BLOCK_SIZE, L2_ASSOCIATIVITY, L2_LATENCY,
-     * MEMORY_LATENCY, REPLACEMENT_POLICY (LRU or FIFO).
+     * Load configuration from a key=value text file.
+     * Supports two formats:
+     *   1. Flat key=value (backward compatible with Phase 2)
+     *   2. INI-style with [section] headers (Phase 3)
+     *
+     * INI sections:
+     *   [pipeline]  — forwarding_enabled
+     *   [latencies] — ADD, MUL, etc.
+     *   [memory]    — virtual_size_bytes, physical_size_bytes, page_size_bytes
+     *   [vm]        — dtlb_entries, tlb_hit_latency, page_walk_latency,
+     *                 page_fault_latency, replacement_policy
+     *   [cache]     — L1I_*, L1D_*, L2_*, MEMORY_LATENCY, REPLACEMENT_POLICY
      */
-    public void loadCacheConfig(String path) throws IOException {
-        Map<String, String> props = new HashMap<>();
+    public void loadConfig(String path) throws IOException {
+        // Parse file into section→{key→value} maps
+        Map<String, Map<String, String>> sections = new HashMap<>();
+        Map<String, String> currentSection = new HashMap<>();
+        sections.put("", currentSection); // default (no section)
+        boolean hasIniSections = false;
+
         try (BufferedReader br = new BufferedReader(new FileReader(path))) {
             String line;
             while ((line = br.readLine()) != null) {
                 line = line.trim();
-                if (line.isEmpty() || line.startsWith("#"))
+                if (line.isEmpty() || line.startsWith("#") || line.startsWith(";"))
                     continue;
+
+                // Check for section header [section_name]
+                if (line.startsWith("[") && line.endsWith("]")) {
+                    String sectionName = line.substring(1, line.length() - 1).trim().toLowerCase();
+                    hasIniSections = true;
+                    currentSection = sections.get(sectionName);
+                    if (currentSection == null) {
+                        currentSection = new HashMap<>();
+                        sections.put(sectionName, currentSection);
+                    }
+                    continue;
+                }
+
                 int eq = line.indexOf('=');
                 if (eq < 0)
                     continue;
-                props.put(line.substring(0, eq).trim(), line.substring(eq + 1).trim());
+                String key = line.substring(0, eq).trim();
+                String value = line.substring(eq + 1).trim();
+                currentSection.put(key, value);
             }
         }
 
+        if (hasIniSections) {
+            loadIniConfig(sections);
+        } else {
+            // Backward-compatible flat format (Phase 2)
+            loadFlatConfig(sections.get(""));
+        }
+    }
+
+    /**
+     * Load from INI-style sectioned config.
+     */
+    private void loadIniConfig(Map<String, Map<String, String>> sections) {
+        // [pipeline]
+        Map<String, String> pipeline = sections.getOrDefault("pipeline", new HashMap<>());
+        String fwdStr = pipeline.getOrDefault("forwarding_enabled",
+                String.valueOf(DEF_FORWARDING)).trim().toLowerCase();
+        forwardingEnabled = fwdStr.equals("true") || fwdStr.equals("1") || fwdStr.equals("yes");
+
+        // [latencies]
+        Map<String, String> lats = sections.getOrDefault("latencies", new HashMap<>());
+        for (Map.Entry<String, String> entry : lats.entrySet()) {
+            try {
+                Opcode op = Opcode.valueOf(entry.getKey().toUpperCase());
+                latencies.put(op, Integer.parseInt(entry.getValue()));
+            } catch (IllegalArgumentException e) {
+                // Unknown opcode in config — skip
+            }
+        }
+
+        // [memory]
+        Map<String, String> mem = sections.getOrDefault("memory", new HashMap<>());
+        if (mem.containsKey("virtual_size_bytes"))
+            virtualSizeBytes = Integer.parseInt(mem.get("virtual_size_bytes"));
+        if (mem.containsKey("physical_size_bytes"))
+            physicalSizeBytes = Integer.parseInt(mem.get("physical_size_bytes"));
+        if (mem.containsKey("page_size_bytes"))
+            pageSizeBytes = Integer.parseInt(mem.get("page_size_bytes"));
+
+        // [vm]
+        Map<String, String> vm = sections.getOrDefault("vm", new HashMap<>());
+        if (vm.containsKey("dtlb_entries"))
+            dtlbEntries = Integer.parseInt(vm.get("dtlb_entries"));
+        if (vm.containsKey("tlb_hit_latency"))
+            tlbHitLatency = Integer.parseInt(vm.get("tlb_hit_latency"));
+        if (vm.containsKey("page_walk_latency"))
+            pageWalkLatency = Integer.parseInt(vm.get("page_walk_latency"));
+        if (vm.containsKey("page_fault_latency"))
+            pageFaultLatency = Integer.parseInt(vm.get("page_fault_latency"));
+        if (vm.containsKey("replacement_policy"))
+            vmReplacementPolicy = vm.get("replacement_policy").trim().toLowerCase();
+
+        // [cache]
+        Map<String, String> cacheSection = sections.getOrDefault("cache", new HashMap<>());
+        if (!cacheSection.isEmpty()) {
+            loadCacheFromMap(cacheSection);
+        }
+        // If no [cache] section, check default section for backward compat
+        Map<String, String> defaultSection = sections.getOrDefault("", new HashMap<>());
+        if (cacheSection.isEmpty() && !defaultSection.isEmpty()) {
+            loadCacheFromMap(defaultSection);
+        }
+    }
+
+    /**
+     * Load from flat key=value format (Phase 2 backward compatibility).
+     */
+    private void loadFlatConfig(Map<String, String> props) {
+        loadCacheFromMap(props);
+
+        String fwdStr = props.getOrDefault("FORWARDING_ENABLED",
+                String.valueOf(DEF_FORWARDING)).trim().toLowerCase();
+        forwardingEnabled = fwdStr.equals("true") || fwdStr.equals("1") || fwdStr.equals("yes");
+    }
+
+    /**
+     * Load cache configuration from a key-value map.
+     */
+    private void loadCacheFromMap(Map<String, String> props) {
         ReplacementPolicy policy = DEF_POLICY;
         String policyStr = props.getOrDefault("REPLACEMENT_POLICY", DEF_POLICY.name()).toUpperCase();
         if (policyStr.equals("FIFO"))
@@ -165,9 +314,7 @@ public class Config {
                 Integer.parseInt(props.getOrDefault("L2_LATENCY", String.valueOf(DEF_L2_LATENCY))),
                 policy);
 
-        mainMemoryLatency = Integer.parseInt(props.getOrDefault("MEMORY_LATENCY", String.valueOf(DEF_MEMORY_LATENCY)));
-
-        String fwdStr = props.getOrDefault("FORWARDING_ENABLED", String.valueOf(DEF_FORWARDING)).trim().toLowerCase();
-        forwardingEnabled = fwdStr.equals("true") || fwdStr.equals("1") || fwdStr.equals("yes");
+        mainMemoryLatency = Integer.parseInt(
+                props.getOrDefault("MEMORY_LATENCY", String.valueOf(DEF_MEMORY_LATENCY)));
     }
 }
