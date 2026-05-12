@@ -148,3 +148,20 @@
 #### Decisions:
 - Fixed cache config wiring — latency values were not reflected in output.
 - Wired forwarding toggle to the config file.
+
+---
+
+## Phase 3
+
+---
+
+### Date: 12th May 2026
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Implemented the full Virtual Memory subsystem (TLB, Page Table, Frame Allocator).
+- Added LRU/FIFO page replacement and dirty page eviction tracking.
+- Developed the Trace Replay engine to simulate VM and cache interactions for pre-recorded trace files (L, S, ADD, MUL).
+- Refactored `CacheHierarchy` to allow for `null` L2 configurations directly, eliminating the need for duplicated trace cache code.
+- Re-architected configuration management into a single, unified INI-style `config.txt` file shared by both pipeline and trace modes.
+- Generated and analyzed final performance results across all 10 trace files. Project finalized and verified against specifications.
