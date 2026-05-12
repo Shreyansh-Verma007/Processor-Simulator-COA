@@ -155,13 +155,42 @@
 
 ---
 
+### Date: 9th May 2026
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Began planning and architecture for Phase 3: Virtual Memory.
+- Designed the `VirtualMemoryUnit` architecture to orchestrate translation.
+- Implemented the `PageTable` (flat, single-level) and `TLB` (fully-associative).
+- Laid the groundwork for address translation logic and basic hit/miss detection.
+
+---
+
+### Date: 10th May 2026
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Integrated a Frame Allocator into the Virtual Memory system to manage physical memory pages.
+- Implemented LRU and FIFO page replacement policies.
+- Added comprehensive tracking for page faults and dirty page evictions to correctly model memory write-back latency penalties.
+
+---
+
+### Date: 11th May 2026
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Designed and built the `TraceSimulator` and `TraceParser` to handle the specific Phase 3 workload requirements (L, S, ADD, MUL traces).
+- Connected the `TraceSimulator` to the `VirtualMemoryUnit` to ensure all simulated memory accesses are correctly translated (PIPT).
+- Re-architected the `CacheHierarchy` to natively support a `null` L2 cache configuration, eliminating the need for duplicated trace-specific cache code.
+
+---
+
 ### Date: 12th May 2026
 **Members:** Suhail Sahib, Shreyansh Verma
 
 #### Decisions:
-- Implemented the full Virtual Memory subsystem (TLB, Page Table, Frame Allocator).
-- Added LRU/FIFO page replacement and dirty page eviction tracking.
-- Developed the Trace Replay engine to simulate VM and cache interactions for pre-recorded trace files (L, S, ADD, MUL).
-- Refactored `CacheHierarchy` to allow for `null` L2 configurations directly, eliminating the need for duplicated trace cache code.
-- Re-architected configuration management into a single, unified INI-style `config.txt` file shared by both pipeline and trace modes.
-- Generated and analyzed final performance results across all 10 trace files. Project finalized and verified against specifications.
+- Re-architected configuration management, moving from disparate config files to a single, unified INI-style `config.txt` shared by both pipeline and trace modes.
+- Refactored console output and stats collection into `StatsPrinter` for clean, consistent reporting.
+- Executed the simulator against all 10 provided trace files.
+- Analyzed final performance results, updated documentation extensively, and finalized the project codebase against all Phase 3 specifications.
