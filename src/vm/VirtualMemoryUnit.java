@@ -1,8 +1,14 @@
 package vm;
 
 import common.Config;
+import core.Memory;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Queue;
 
 /**
@@ -18,11 +24,18 @@ public class VirtualMemoryUnit {
     private final PageTable pageTable;
     private final Config cfg;
 
+    private final Memory physicalMemory;
+
     // Physical frame management
     private final int numFrames;
     private final Queue<Integer> freeFrames;    // free frame pool
     private final boolean useLRU;
     private long clock = 0;
+
+    // Swap space: VPN → saved page data (word array)
+    private final Map<Integer, int[]> swapSpace = new HashMap<>();
+    private int swapOuts = 0;
+    private int swapIns = 0;
 
     // Statistics
     private int pageWalks = 0;
@@ -31,8 +44,9 @@ public class VirtualMemoryUnit {
     private int dirtyEvictions = 0;
     private long totalTranslationPenalty = 0;
 
-    public VirtualMemoryUnit(Config cfg) {
+    public VirtualMemoryUnit(Config cfg, Memory physicalMemory) {
         this.cfg = cfg;
+        this.physicalMemory = physicalMemory;
         int pageSizeBytes = cfg.getPageSizeBytes();
         this.numFrames = cfg.getPhysicalSizeBytes() / pageSizeBytes;
         this.useLRU = cfg.getVmReplacementPolicy().equalsIgnoreCase("lru");
@@ -92,8 +106,9 @@ public class VirtualMemoryUnit {
                 latency += cfg.getPageFaultLatency();
                 pageFaults++;
 
-                // Allocate a frame
+                // Allocate a frame and restore swap data (or zero-fill)
                 int frame = allocateFrame();
+                restoreOrZeroFrame(vpn, frame);
                 pageTable.mapPage(vpn, frame, clock++);
                 pte = pageTable.lookup(vpn); // re-fetch after mapping
             } else {
@@ -164,6 +179,7 @@ public class VirtualMemoryUnit {
         boolean isDirty = victimPTE.dirty || tlb.isDirty(victimVPN);
         if (isDirty) {
             dirtyEvictions++;
+            saveToSwap(victimVPN, freedFrame);
         }
 
         // Invalidate in TLB and page table
@@ -173,33 +189,61 @@ public class VirtualMemoryUnit {
         return freedFrame;
     }
 
+    /** Save a frame's data to swap space. */
+    private void saveToSwap(int vpn, int frame) {
+        int pageSizeBytes = cfg.getPageSizeBytes();
+        int wordsPerPage = pageSizeBytes / 4;
+        int baseAddr = frame * pageSizeBytes;
+        int[] pageData = new int[wordsPerPage];
+        for (int i = 0; i < wordsPerPage; i++) {
+            pageData[i] = physicalMemory.readWord(baseAddr + i * 4);
+        }
+        swapSpace.put(vpn, pageData);
+        swapOuts++;
+    }
+
+    /** Restore page data from swap, or zero-fill if fresh page. */
+    private void restoreOrZeroFrame(int vpn, int frame) {
+        int pageSizeBytes = cfg.getPageSizeBytes();
+        int wordsPerPage = pageSizeBytes / 4;
+        int baseAddr = frame * pageSizeBytes;
+        if (swapSpace.containsKey(vpn)) {
+            int[] pageData = swapSpace.remove(vpn);
+            for (int i = 0; i < wordsPerPage; i++) {
+                physicalMemory.writeWord(baseAddr + i * 4, pageData[i]);
+            }
+            swapIns++;
+        } else {
+            for (int i = 0; i < wordsPerPage; i++) {
+                physicalMemory.writeWord(baseAddr + i * 4, 0);
+            }
+        }
+    }
+
+    /** Dump swap state to swap.txt for inspection. */
+    public void writeSwapFile() {
+        try (PrintWriter pw = new PrintWriter(new FileWriter("swap.txt"))) {
+            pw.println("=== Swap Space Dump ===");
+            pw.println("Swap Outs (writes): " + swapOuts);
+            pw.println("Swap Ins  (reads) : " + swapIns);
+            pw.println("Resident in swap  : " + swapSpace.size());
+            for (Map.Entry<Integer, int[]> e : swapSpace.entrySet()) {
+                pw.println("  VPN " + e.getKey() + ": " + e.getValue().length + " words");
+            }
+        } catch (IOException e) {
+            System.err.println("WARNING: Could not write swap.txt: " + e.getMessage());
+        }
+    }
+
     // ── Statistics accessors ─────────────────────────────────────────────
 
-    public int getTlbHits() {
-        return tlb.getHits();
-    }
-
-    public int getTlbMisses() {
-        return tlb.getMisses();
-    }
-
-    public int getPageWalks() {
-        return pageWalks;
-    }
-
-    public int getPageFaults() {
-        return pageFaults;
-    }
-
-    public int getPageEvictions() {
-        return pageEvictions;
-    }
-
-    public int getDirtyEvictions() {
-        return dirtyEvictions;
-    }
-
-    public long getTotalTranslationPenalty() {
-        return totalTranslationPenalty;
-    }
+    public int getTlbHits()                  { return tlb.getHits(); }
+    public int getTlbMisses()                { return tlb.getMisses(); }
+    public int getPageWalks()                { return pageWalks; }
+    public int getPageFaults()               { return pageFaults; }
+    public int getPageEvictions()             { return pageEvictions; }
+    public int getDirtyEvictions()            { return dirtyEvictions; }
+    public long getTotalTranslationPenalty()  { return totalTranslationPenalty; }
+    public int getSwapOuts()                  { return swapOuts; }
+    public int getSwapIns()                   { return swapIns; }
 }
