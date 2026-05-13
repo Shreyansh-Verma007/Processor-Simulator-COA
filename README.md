@@ -16,7 +16,7 @@
 
 - **Cycle-Accurate Pipeline** — 5-stage IF→ID→EX→MEM→WB with precise stall/flush/drain mechanics
 - **Complete Memory Hierarchy** — L1I + L1D + unified L2 caches, all set-associative with LRU/FIFO, write-back write-allocate
-- **Full Virtual Memory** — TLB, flat page table, page fault handling, frame allocation, LRU/FIFO page replacement, dirty eviction tracking
+- **Full Virtual Memory** — TLB, flat page table, page fault handling, frame allocation, LRU/FIFO page replacement, dirty eviction tracking, swap space with file-backed persistence (`swap.txt`)
 - **Branch Prediction** — BTFNT (Backward-Taken, Forward-Not-Taken) static predictor with misprediction recovery
 - **Data Forwarding** — EX/MEM → EX and MEM/WB → EX bypass paths, configurable enable/disable for experimentation
 - **Trace Replay Engine** — Feed pre-recorded memory access traces through the VM + cache subsystem for workload analysis
@@ -31,48 +31,44 @@
 ### Pipeline Mode — Full Processor Simulation
 
 ```
- +----------------------------------------------------+
- |                                                    |
- |   input.asm ---> Lexer -> Parser -> Compiler       |
- |                         |                          |
- |                         v                          |
- |          +------+------+------+------+------+      |
- |          |  IF  |  ID  |  EX  | MEM  |  WB  |     |
- |          +--+---+--+---+--+---+--+---+--+---+      |
- |             |      |      |      |      |          |
- |             v      |      |      v      v          |
- |           L1I   HazardUnit    L1D   RegisterFile   |
- |             |   ForwardingUnit  |                  |
- |             +--------+---------+                   |
- |                      v                             |
- |                 L2 (Unified)                        |
- |                      |                             |
- |                      v                             |
- |                 Main Memory                         |
- |                                                    |
- +----------------------------------------------------+
+                    ┌──────────────────────────────────────────────────┐
+  input.asm ───▶    │  Lexer → Parser → Compiler                      │
+                    │         │                                        │
+                    │         ▼                                        │
+                    │  ┌─────┬─────┬─────┬─────┬─────┐                │
+                    │  │ IF  │ ID  │ EX  │ MEM │ WB  │  Pipeline      │
+                    │  └──┬──┴──┬──┴──┬──┴──┬──┴──┬──┘                │
+                    │     │     │     │     │     │                    │
+                    │     ▼     │     │     ▼     ▼                    │
+                    │   L1I    HazardUnit  L1D   RegisterFile         │
+                    │     │   ForwardingUnit │                         │
+                    │     └────────┬─────────┘                         │
+                    │              ▼                                    │
+                    │         L2 (Unified)                              │
+                    │              │                                    │
+                    │              ▼                                    │
+                    │        Main Memory                                │
+                    └──────────────────────────────────────────────────┘
 ```
 
 ### Trace Replay Mode — VM + Cache Workload Analysis
 
 ```
- +----------------------------------------------------+
- |                                                    |
- |   trace.file ---> TraceParser -> TraceSimulator    |
- |                                    |               |
- |                   +----------------+-------+       |
- |                   v                v       v       |
- |                 TLB       RegisterFile  CacheHier  |
- |                  |                      (L1D only) |
- |                  v                         |       |
- |             Page Table                     |       |
- |          (flat, single-level)              |       |
- |                  |                         |       |
- |                  v                         v       |
- |          Frame Allocator -----> Physical Memory    |
- |          (LRU/FIFO eviction)                       |
- |                                                    |
- +----------------------------------------------------+
+                    ┌──────────────────────────────────────────────────┐
+  trace.file ───▶   │  TraceParser → TraceSimulator                    │
+                    │                    │                              │
+                    │         ┌──────────┼──────────┐                  │
+                    │         ▼          ▼          ▼                  │
+                    │       TLB     RegisterFile  CacheHierarchy       │
+                    │         │                   (L1D only)           │
+                    │         ▼                      │                 │
+                    │    Page Table                   │                 │
+                    │    (flat, single-level)         │                 │
+                    │         │                       │                 │
+                    │         ▼                       ▼                 │
+                    │   Frame Allocator ──────▶ Physical Memory        │
+                    │   (LRU/FIFO eviction)                            │
+                    └──────────────────────────────────────────────────┘
 ```
 
 > **Key design choice**: Both modes share the **same** `CacheHierarchy`, `RegisterFile`, `Memory`, `Config`, and `Stats` classes — zero code duplication between pipeline and trace paths.
@@ -120,21 +116,21 @@
 ### Pipeline Hazard Resolution
 
 ```
- +-------------------+------------------------------------------------+
- |                     Hazard Detection Matrix                        |
- +-------------------+------------------------------------------------+
- | Hazard Type       | Resolution Strategy                            |
- +-------------------+------------------------------------------------+
- | Load-Use (RAW)    | 1-cycle stall (even with forwarding enabled)   |
- | RAW (forwarding)  | EX/MEM or MEM/WB bypass -- zero stall penalty  |
- | RAW (no forward)  | Stall until producer reaches WB stage          |
- | Multi-cycle EX    | Pipeline frozen while MUL/DIV counts down      |
- | Branch mispredict | 2-cycle flush: squash IF_ID + ID_EX, fix PC    |
- | JAL               | Flush + redirect to jump target                |
- | IF cache miss     | Entire pipeline frozen for miss latency         |
- | MEM cache miss    | Entire pipeline frozen (MEM prioritized)       |
- | Concurrent miss   | MEM miss served first, then IF miss (serial)   |
- +-------------------+------------------------------------------------+
+┌──────────────────────────────────────────────────────────────────┐
+│                    Hazard Detection Matrix                        │
+├──────────────────┬───────────────────────────────────────────────┤
+│ Hazard Type      │ Resolution Strategy                           │
+├──────────────────┼───────────────────────────────────────────────┤
+│ Load-Use (RAW)   │ 1-cycle stall (even with forwarding enabled)  │
+│ RAW (forwarding) │ EX/MEM or MEM/WB bypass — zero stall penalty  │
+│ RAW (no forward) │ Stall until producer reaches WB stage         │
+│ Multi-cycle EX   │ Pipeline frozen while MUL/DIV counts down     │
+│ Branch mispredict│ 2-cycle flush: squash IF_ID + ID_EX, fix PC   │
+│ JAL              │ Flush + redirect to jump target               │
+│ IF cache miss    │ Entire pipeline frozen for miss latency        │
+│ MEM cache miss   │ Entire pipeline frozen (MEM prioritized)      │
+│ Concurrent miss  │ MEM miss served first, then IF miss (serial)  │
+└──────────────────┴───────────────────────────────────────────────┘
 ```
 
 ---
@@ -144,9 +140,9 @@
 ### Two-Level Set-Associative Design
 
 ```
-  IF Stage ---> L1I ---+
-                       +---> L2 (Unified) ---> Main Memory (200 cycles)
- MEM Stage ---> L1D ---+
+  IF Stage ──▶ L1I ──┐
+                      ├──▶ L2 (Unified) ──▶ Main Memory (200 cycles)
+ MEM Stage ──▶ L1D ──┘
 ```
 
 | Property | L1I (default) | L1D (default) | L2 (default) |
@@ -172,25 +168,32 @@
 
 ```
   Virtual Address
-       |
-       v
-  +-----------+    hit     +------------------+
-  |    TLB    | ---------> | Physical Frame   | ---> Cache Access (PIPT)
-  |  (16 ent) |            +------------------+
-  +-----+-----+
-        | miss (+10 cycles page walk)
-        v
-  +-------------+  valid   +------------------+
-  | Page Table  | -------> | Physical Frame   | ---> Insert into TLB
-  |   (flat)    |          +------------------+
-  +------+------+
-         | invalid (+50 cycles page fault)
-         v
-  +----------------+
-  | Frame Alloc    | ---> Free frame available? Use it.
-  |                | ---> No free frames? Evict via LRU/FIFO
-  |                |        '--> Dirty? Track writeback count
-  +----------------+
+       │
+       ▼
+  ┌─────────┐    hit     ┌────────────────┐
+  │   TLB   │ ─────────▶ │ Physical Frame │ ──▶ Cache Access (PIPT)
+  │ (16 ent)│            └────────────────┘
+  └────┬────┘
+       │ miss (+10 cycles page walk)
+       ▼
+  ┌───────────┐   valid   ┌────────────────┐
+  │ Page Table│ ────────▶ │ Physical Frame │ ──▶ Insert into TLB
+  │  (flat)   │           └────────────────┘
+  └─────┬─────┘
+        │ invalid (+50 cycles page fault)
+        ▼
+  ┌──────────────┐
+  │ Frame Alloc  │ ──▶ Free frame available? Use it.
+  │              │ ──▶ No free frames? Evict via LRU/FIFO
+  │              │       └▶ Dirty? Save to swap space
+  │              │ ──▶ Page in swap? Restore data to frame
+  └──────────────┘
+         │
+         ▼
+  ┌──────────────┐
+  │  Swap Space  │ ──▶ In-memory HashMap + swap.txt dump
+  │  (swap.txt)  │     Preserves dirty page data across evictions
+  └──────────────┘
 ```
 
 ### VM Statistics Tracked
@@ -202,6 +205,8 @@
 | Page Faults | First-access faults requiring frame allocation |
 | Page Evictions | Pages evicted when physical memory is full |
 | Dirty Evictions | Evictions of modified pages (require writeback) |
+| Swap Outs | Dirty pages saved to swap space on eviction |
+| Swap Ins | Pages restored from swap space on re-access |
 | Translation Penalty | Total cycles spent on address translation |
 
 ---
@@ -215,37 +220,37 @@
 **Config:** L1I=1KB/2-way/5c, L1D=4KB/1-way/1c, L2=8KB/4-way/50c, Mem=200c, Forwarding=ON
 
 ```
- +==============================================+
- |         Pipeline Simulation Results          |
- +==============================================+
- |  Cycles              : 15,291                |
- |  Instructions Retired: 2,514                 |
- |  IPC                 : 0.164                 |
- |  Stalls              : 12,289                |
- |  Branch Flushes      : 242                   |
- +==============================================+
- |  L1I : 2,758 hits, 2 misses  (MR: 0.001)    |
- |  L1D : 575 hits, 2 misses    (MR: 0.003)    |
- |  L2  : 0 hits, 4 misses      (MR: 1.000)    |
- +==============================================+
+╔══════════════════════════════════════════════╗
+║         Pipeline Simulation Results          ║
+╠══════════════════════════════════════════════╣
+║  Cycles              : 15,291                ║
+║  Instructions Retired: 2,514                 ║
+║  IPC                 : 0.164                 ║
+║  Stalls              : 12,289                ║
+║  Branch Flushes      : 242                   ║
+╠══════════════════════════════════════════════╣
+║  L1I : 2,758 hits, 2 misses  (MR: 0.001)    ║
+║  L1D : 575 hits, 2 misses    (MR: 0.003)    ║
+║  L2  : 0 hits, 4 misses      (MR: 1.000)    ║
+╚══════════════════════════════════════════════╝
 ```
 
 ### Trace Replay Mode — 10 Traces (~715K instructions each)
 
 **Config:** LRU, 16 DTLB entries, 64 physical frames (256KB), 4KB direct-mapped L1D, no L2, PIPT
 
-| Trace | Cycles | IPC | TLB Hit Rate | Page Faults | Evictions | Dirty Evictions | L1D Hit Rate |
-|:-----:|-------:|:---:|:------------:|:-----------:|:---------:|:---------------:|:------------:|
-| 01 | 73,004,328 | 0.0098 | **100.0%** | 8 | 0 | 0 | 0.0% |
-| 02 | 73,002,768 | 0.0098 | **100.0%** | 16 | 0 | 0 | 0.0% |
-| 03 | 76,586,314 | 0.0093 | 0.0% | 17 | 0 | 0 | 0.0% |
-| 04 | 72,543,936 | 0.0099 | 49.9% | 32 | 0 | 0 | 3.1% |
-| 05 | 76,439,624 | 0.0094 | 3.6% | 64 | 0 | 0 | 0.0% |
-| 06 | 22,916,096 | **0.0312** | 0.0% | 357,864 | 357,800 | 107,798 | **99.98%** |
-| 07 | 76,142,752 | 0.0094 | 58.4% | 59,900 | 59,836 | 57,100 | 1.9% |
-| 08 | 22,916,480 | **0.0312** | 0.0% | 357,870 | 357,806 | 71,269 | **99.98%** |
-| 09 | **94,479,264** | 0.0076 | 0.0% | 357,876 | 357,812 | 125,515 | 0.0% |
-| 10 | 70,292,554 | 0.0102 | 79.7% | 1,716 | 1,652 | 1,652 | 4.9% |
+| Trace | Cycles | IPC | TLB Hit Rate | Page Faults | Evictions | Dirty Evictions | Swap Out | Swap In | L1D Hit Rate |
+|:-----:|-------:|:---:|:------------:|:-----------:|:---------:|:---------------:|:--------:|:-------:|:------------:|
+| 01 | 73,004,328 | 0.0098 | **100.0%** | 8 | 0 | 0 | 0 | 0 | 0.0% |
+| 02 | 73,002,768 | 0.0098 | **100.0%** | 16 | 0 | 0 | 0 | 0 | 0.0% |
+| 03 | 76,586,314 | 0.0093 | 0.0% | 17 | 0 | 0 | 0 | 0 | 0.0% |
+| 04 | 72,543,936 | 0.0099 | 49.9% | 32 | 0 | 0 | 0 | 0 | 3.1% |
+| 05 | 76,439,624 | 0.0094 | 3.6% | 64 | 0 | 0 | 0 | 0 | 0.0% |
+| 06 | 22,916,096 | **0.0312** | 0.0% | 357,864 | 357,800 | 107,798 | 107,798 | 107,793 | **99.98%** |
+| 07 | 76,142,752 | 0.0094 | 58.4% | 59,900 | 59,836 | 57,100 | 57,100 | 57,069 | 1.9% |
+| 08 | 22,916,480 | **0.0312** | 0.0% | 357,870 | 357,806 | 71,269 | 71,269 | 71,222 | **99.98%** |
+| 09 | **94,479,264** | 0.0076 | 0.0% | 357,876 | 357,812 | 125,515 | 125,515 | 125,492 | 0.0% |
+| 10 | 70,292,554 | 0.0102 | 79.7% | 1,716 | 1,652 | 1,652 | 1,652 | 1,636 | 4.9% |
 
 ### Key Observations
 
@@ -253,13 +258,16 @@
 Near-perfect TLB locality (100% hit rate) with only 8–16 unique pages. However, 100% L1D miss rate — the 8-page stride pattern creates systematic cache conflicts in the 4KB direct-mapped L1D. Every memory access pays the full 200-cycle memory penalty.
 
 **Traces 6, 8 (Worst VM, Best Cache — The Paradox):**
-Maximum page fault pressure — every single L/S instruction triggers a page fault (357K+ total), overwhelming 64 physical frames. Yet paradoxically, these traces achieve the **best IPC (0.0312)** because after translation, physical addresses map to a small set of cache lines, yielding 99.98% L1D hit rate. The expensive translation is offset by nearly free cache access.
+Maximum page fault pressure — every single L/S instruction triggers a page fault (357K+ total), overwhelming 64 physical frames. **107K–71K dirty evictions** are saved to swap and selectively restored on re-access, ensuring correctness. Yet paradoxically, these traces achieve the **best IPC (0.0312)** because after translation, physical addresses map to a small set of cache lines, yielding 99.98% L1D hit rate. The expensive translation is offset by nearly free cache access.
 
 **Trace 9 (Absolute Worst Case):**
-Zero TLB hits combined with 100% L1D miss rate. Every memory operation pays: TLB miss (11 cycles) + page fault (50 cycles) + cache miss (201 cycles). Results in the highest total cycle count: **94.5 million cycles** for 715K instructions.
+Zero TLB hits combined with 100% L1D miss rate. Every memory operation pays: TLB miss (11 cycles) + page fault (50 cycles) + cache miss (201 cycles). **125K dirty evictions** are swap-saved. Results in the highest total cycle count: **94.5 million cycles** for 715K instructions.
+
+**Trace 7 (Heavy Swap):**
+57,100 dirty evictions, all saved to swap with 57,069 restored — meaning nearly every evicted dirty page is re-accessed, validating that the swap round-trip preserves register computation correctness.
 
 **Trace 10 (Best Overall):**
-Good TLB locality (79.7%), only 1,716 page faults, and moderate cache reuse. Achieves the lowest cycle count: **70.3 million**.
+Good TLB locality (79.7%), only 1,716 page faults, and moderate cache reuse. All 1,652 evictions were dirty (saved to swap), with 1,636 restored. Achieves the lowest cycle count: **70.3 million**.
 
 ---
 
@@ -380,11 +388,12 @@ src/
 │
 ├── trace/                           Trace replay subsystem
 │   ├── TraceSimulator.java          VM + cache simulation engine
+│   ├── TraceDataCache.java          Write-back L1D cache for trace mode
 │   ├── TraceParser.java             L/S/ADD/MUL trace file parser
 │   └── TraceInstruction.java        Trace instruction data class
 │
 └── vm/                              Virtual memory
-    ├── VirtualMemoryUnit.java       TLB → PageTable → Fault → Allocate
+    ├── VirtualMemoryUnit.java       TLB → PageTable → Fault → Allocate + Swap
     ├── TLB.java                     Fully-associative, LRU/FIFO eviction
     ├── TLBEntry.java                VPN → PFN mapping + dirty bit
     ├── PageTable.java               Flat table indexed by virtual page number
@@ -423,6 +432,7 @@ java -cp out Main --trace-all <dir> config.txt       # batch (all .trace files)
 | `console.txt` | Cycle-by-cycle pipeline execution log |
 | `output.txt` | Final simulation statistics |
 | `all_results.txt` | Consolidated batch trace results |
+| `swap.txt` | Swap space dump — pages still resident in swap after simulation |
 
 ---
 
