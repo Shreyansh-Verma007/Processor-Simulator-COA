@@ -81,6 +81,8 @@ public class StatsPrinter {
         out.println("Page Faults               : " + stats.pageFaults);
         out.println("Page Evictions            : " + stats.pageEvictions);
         out.println("Dirty Evictions           : " + stats.dirtyEvictions);
+        out.println("Swap Outs (to disk)       : " + stats.swapOuts);
+        out.println("Swap Ins  (from disk)     : " + stats.swapIns);
         out.println("Translation Penalty Cycles: " + stats.totalTranslationPenaltyCycles);
         out.println();
 

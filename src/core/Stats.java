@@ -21,6 +21,8 @@ public class Stats {
     public int pageFaults = 0;
     public int pageEvictions = 0;
     public int dirtyEvictions = 0;
+    public int swapOuts = 0;
+    public int swapIns = 0;
     public long totalTranslationPenaltyCycles = 0;
 
     public double getIPC() {

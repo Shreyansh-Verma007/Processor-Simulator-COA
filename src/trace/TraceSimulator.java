@@ -1,11 +1,7 @@
 package trace;
 
-import cache.CacheHierarchy;
-import cache.AccessResult;
 import common.Config;
-import common.StatsPrinter;
 import core.Memory;
-import core.RegisterFile;
 import core.Stats;
 import vm.TranslationResult;
 import vm.VirtualMemoryUnit;
@@ -18,16 +14,13 @@ import java.util.List;
  *
  * Reads pre-parsed trace instructions and simulates execution with:
  *   - Virtual memory (TLB + page table + page fault handling)
- *   - L1D data cache via shared CacheHierarchy (L2=null, PIPT)
+ *   - L1D data cache (PIPT — physically indexed, physically tagged)
  *   - Simple latency accumulation (no pipeline stages)
  *
  * For each instruction, the simulator charges:
  *   - L/S: translation latency + cache access latency
  *   - ADD: configured latency (default 1 cycle)
  *   - MUL: configured latency (default 3 cycles)
- *
- * Reuses core.RegisterFile and cache.CacheHierarchy instead of
- * duplicating their logic — keeping the codebase modular.
  */
 public class TraceSimulator {
 
@@ -35,31 +28,26 @@ public class TraceSimulator {
     private final Stats stats;
     private final VirtualMemoryUnit vmu;
 
-    // Reuses the shared CacheHierarchy (with L2=null for trace mode)
-    private final CacheHierarchy cache;
-    private final Memory physicalMemory;
+    // Simple L1D cache (no L2 in trace mode, direct to memory on miss)
+    private TraceDataCache dataCache;
+    private Memory physicalMemory;
 
-    // Reuses the shared RegisterFile from core package
-    private final RegisterFile registers;
+    // Simple register file for trace mode
+    private final int[] registers = new int[32];
 
     public TraceSimulator(Config cfg) {
         this.cfg = cfg;
         this.stats = new Stats();
-        this.vmu = new VirtualMemoryUnit(cfg);
 
-        // Set up physical memory sized to physical_size_bytes
+        // Set up physical memory first (VMU needs it for swap)
         this.physicalMemory = new Memory(cfg.getPhysicalSizeBytes());
+        this.vmu = new VirtualMemoryUnit(cfg, physicalMemory);
 
-        // Reuse core.RegisterFile instead of a raw int[]
-        this.registers = new RegisterFile();
-
-        // Reuse CacheHierarchy with L1I=null, L2=null (trace mode: L1D only → memory)
-        this.cache = new CacheHierarchy(
-                null,               // no L1I in trace mode
-                cfg.getL1D(),       // L1D config
-                null,               // no L2 in trace mode
-                cfg.getMainMemoryLatency(),
-                physicalMemory);
+        // Set up L1D cache for trace mode (no L2, direct to memory on miss)
+        if (cfg.getL1D() != null) {
+            this.dataCache = new TraceDataCache(
+                    cfg.getL1D(), cfg.getMainMemoryLatency(), physicalMemory);
+        }
     }
 
     /**
@@ -73,8 +61,11 @@ public class TraceSimulator {
             executeInstruction(instr);
         }
 
-        // Collect cache stats via the shared Stats.collectCacheStats()
-        stats.collectCacheStats(cache);
+        // Collect cache stats at end
+        if (dataCache != null) {
+            stats.l1dHits = dataCache.getHits();
+            stats.l1dMisses = dataCache.getMisses();
+        }
 
         // Collect VM stats
         stats.tlbHits = vmu.getTlbHits();
@@ -84,6 +75,11 @@ public class TraceSimulator {
         stats.pageEvictions = vmu.getPageEvictions();
         stats.dirtyEvictions = vmu.getDirtyEvictions();
         stats.totalTranslationPenaltyCycles = vmu.getTotalTranslationPenalty();
+        stats.swapOuts = vmu.getSwapOuts();
+        stats.swapIns = vmu.getSwapIns();
+
+        // Write swap space dump to swap.txt
+        vmu.writeSwapFile();
     }
 
     private void executeInstruction(TraceInstruction instr) {
@@ -115,10 +111,17 @@ public class TraceSimulator {
         int cycles = tr.latencyCycles;
 
         // Step 2: Access L1D cache with physical address (PIPT)
-        AccessResult ar = cache.readData(physAddr);
-        cycles += ar.latencyCycles;
-        if (instr.rd != 0) {
-            registers.write(instr.rd, ar.data);
+        if (dataCache != null) {
+            TraceDataCache.Result ar = dataCache.read(physAddr);
+            cycles += ar.latency;
+            if (instr.rd != 0) {
+                registers[instr.rd] = ar.data;
+            }
+        } else {
+            cycles += 1; // default 1 cycle if no cache
+            if (instr.rd != 0) {
+                registers[instr.rd] = physicalMemory.readWord(physAddr);
+            }
         }
 
         stats.cycles += cycles;
@@ -136,9 +139,14 @@ public class TraceSimulator {
         int cycles = tr.latencyCycles;
 
         // Step 2: Access L1D cache with physical address (PIPT)
-        int storeValue = registers.read(instr.rs1);
-        AccessResult ar = cache.writeData(physAddr, storeValue);
-        cycles += ar.latencyCycles;
+        int storeValue = registers[instr.rs1];
+        if (dataCache != null) {
+            TraceDataCache.Result ar = dataCache.write(physAddr, storeValue);
+            cycles += ar.latency;
+        } else {
+            cycles += 1; // default 1 cycle if no cache
+            physicalMemory.writeWord(physAddr, storeValue);
+        }
 
         stats.cycles += cycles;
         stats.stalls += (cycles - 1);
@@ -148,9 +156,9 @@ public class TraceSimulator {
      * ADD: rd = rs1 + rs2, costs configured latency (default 1 cycle).
      */
     private void executeAdd(TraceInstruction instr) {
-        int result = registers.read(instr.rs1) + registers.read(instr.rs2);
+        int result = registers[instr.rs1] + registers[instr.rs2];
         if (instr.rd != 0) {
-            registers.write(instr.rd, result);
+            registers[instr.rd] = result;
         }
         int latency = cfg.getLatency(common.Opcode.ADD);
         stats.cycles += latency;
@@ -163,9 +171,9 @@ public class TraceSimulator {
      * MUL: rd = rs1 * rs2, costs configured latency (default 3 cycles).
      */
     private void executeMul(TraceInstruction instr) {
-        int result = registers.read(instr.rs1) * registers.read(instr.rs2);
+        int result = registers[instr.rs1] * registers[instr.rs2];
         if (instr.rd != 0) {
-            registers.write(instr.rd, result);
+            registers[instr.rd] = result;
         }
         int latency = cfg.getLatency(common.Opcode.MUL);
         stats.cycles += latency;
@@ -175,10 +183,39 @@ public class TraceSimulator {
     }
 
     /**
-     * Print all simulation statistics via the shared StatsPrinter.
+     * Print all simulation statistics.
      */
     public void printStats(PrintStream out) {
-        StatsPrinter.printTraceStats(out, stats);
+        out.println("=== Trace Replay Simulation Stats ===");
+        out.println();
+
+        out.println("--- Execution ---");
+        out.println("Total Cycles              : " + stats.cycles);
+        out.println("Instructions Retired      : " + stats.instructionsRetired);
+        out.printf("IPC                       : %.4f%n", stats.getIPC());
+        out.println("Stalls                    : " + stats.stalls);
+        out.println();
+
+        out.println("--- Virtual Memory ---");
+        out.println("TLB Hits                  : " + stats.tlbHits);
+        out.println("TLB Misses                : " + stats.tlbMisses);
+        out.printf("TLB Hit Rate              : %.4f%n",
+                (stats.tlbHits + stats.tlbMisses) == 0 ? 0.0 :
+                        (double) stats.tlbHits / (stats.tlbHits + stats.tlbMisses));
+        out.println("Page Walks                : " + stats.pageWalks);
+        out.println("Page Faults               : " + stats.pageFaults);
+        out.println("Page Evictions            : " + stats.pageEvictions);
+        out.println("Dirty Evictions           : " + stats.dirtyEvictions);
+        out.println("Swap Outs (to disk)       : " + stats.swapOuts);
+        out.println("Swap Ins  (from disk)     : " + stats.swapIns);
+        out.println("Translation Penalty Cycles: " + stats.totalTranslationPenaltyCycles);
+        out.println();
+
+        out.println("--- Cache Statistics ---");
+        out.printf("L1D Hits                  : %d%n", stats.l1dHits);
+        out.printf("L1D Misses                : %d%n", stats.l1dMisses);
+        out.printf("L1D Miss Rate             : %.4f%n",
+                stats.getMissRate(stats.l1dHits, stats.l1dMisses));
     }
 
     public Stats getStats() {
