@@ -5,6 +5,7 @@ import core.Memory;
 import core.Stats;
 import vm.TranslationResult;
 import vm.VirtualMemoryUnit;
+import cache.CacheHierarchy;
 
 import java.io.PrintStream;
 import java.util.List;
@@ -28,8 +29,8 @@ public class TraceSimulator {
     private final Stats stats;
     private final VirtualMemoryUnit vmu;
 
-    // Simple L1D cache (no L2 in trace mode, direct to memory on miss)
-    private TraceDataCache dataCache;
+    // Cache hierarchy for trace mode (supports L1D and L2)
+    private CacheHierarchy cache;
     private Memory physicalMemory;
 
     // Simple register file for trace mode
@@ -43,10 +44,11 @@ public class TraceSimulator {
         this.physicalMemory = new Memory(cfg.getPhysicalSizeBytes());
         this.vmu = new VirtualMemoryUnit(cfg, physicalMemory);
 
-        // Set up L1D cache for trace mode (no L2, direct to memory on miss)
-        if (cfg.getL1D() != null) {
-            this.dataCache = new TraceDataCache(
-                    cfg.getL1D(), cfg.getMainMemoryLatency(), physicalMemory);
+        // Set up cache hierarchy (no L1I in trace mode, but L1D and L2 are supported)
+        if (cfg.hasCacheConfig()) {
+            this.cache = new CacheHierarchy(
+                    null, cfg.getL1D(), cfg.getL2(),
+                    cfg.getMainMemoryLatency(), physicalMemory);
         }
     }
 
@@ -62,9 +64,8 @@ public class TraceSimulator {
         }
 
         // Collect cache stats at end
-        if (dataCache != null) {
-            stats.l1dHits = dataCache.getHits();
-            stats.l1dMisses = dataCache.getMisses();
+        if (cache != null) {
+            stats.collectCacheStats(cache);
         }
 
         // Collect VM stats
@@ -110,10 +111,10 @@ public class TraceSimulator {
         int physAddr = tr.physicalAddress;
         int cycles = tr.latencyCycles;
 
-        // Step 2: Access L1D cache with physical address (PIPT)
-        if (dataCache != null) {
-            TraceDataCache.Result ar = dataCache.read(physAddr);
-            cycles += ar.latency;
+        // Step 2: Access L1D/L2 cache with physical address (PIPT)
+        if (cache != null) {
+            cache.AccessResult ar = cache.readData(physAddr);
+            cycles += ar.latencyCycles;
             if (instr.rd != 0) {
                 registers[instr.rd] = ar.data;
             }
@@ -138,11 +139,11 @@ public class TraceSimulator {
         int physAddr = tr.physicalAddress;
         int cycles = tr.latencyCycles;
 
-        // Step 2: Access L1D cache with physical address (PIPT)
+        // Step 2: Access L1D/L2 cache with physical address (PIPT)
         int storeValue = registers[instr.rs1];
-        if (dataCache != null) {
-            TraceDataCache.Result ar = dataCache.write(physAddr, storeValue);
-            cycles += ar.latency;
+        if (cache != null) {
+            cache.AccessResult ar = cache.writeData(physAddr, storeValue);
+            cycles += ar.latencyCycles;
         } else {
             cycles += 1; // default 1 cycle if no cache
             physicalMemory.writeWord(physAddr, storeValue);
@@ -212,10 +213,19 @@ public class TraceSimulator {
         out.println();
 
         out.println("--- Cache Statistics ---");
+        out.printf("L1I Hits                  : %d%n", stats.l1iHits);
+        out.printf("L1I Misses                : %d%n", stats.l1iMisses);
+        out.printf("L1I Miss Rate             : %.4f%n", stats.getMissRate(stats.l1iHits, stats.l1iMisses));
+        out.println();
+        
         out.printf("L1D Hits                  : %d%n", stats.l1dHits);
         out.printf("L1D Misses                : %d%n", stats.l1dMisses);
-        out.printf("L1D Miss Rate             : %.4f%n",
-                stats.getMissRate(stats.l1dHits, stats.l1dMisses));
+        out.printf("L1D Miss Rate             : %.4f%n", stats.getMissRate(stats.l1dHits, stats.l1dMisses));
+        out.println();
+        
+        out.printf("L2 Hits                   : %d%n", stats.l2Hits);
+        out.printf("L2 Misses                 : %d%n", stats.l2Misses);
+        out.printf("L2 Miss Rate              : %.4f%n", stats.getMissRate(stats.l2Hits, stats.l2Misses));
     }
 
     public Stats getStats() {
