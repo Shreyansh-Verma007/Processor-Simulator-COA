@@ -434,6 +434,25 @@ java -cp out Main --trace-all phase3_traces             # batch (all .trace file
 
 ---
 
+## 📊 Trace Replay Results
+
+Below are the Phase 3 evaluation statistics for all 10 provided trace files under the mandatory hardware configuration (256KB Physical Memory, 16 DTLB, 4KB Direct Mapped L1, No L2).
+
+| Trace | Total Cycles | Instr Retired | IPC | Stalls | TLB Hits | TLB Misses | Page Walks | Page Faults | Evictions | Dirty Evic | Translation Penalty |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `trace01` | 18967166 | 715724 | 0.0377 | 18251442 | 357854 | 8 | 8 | 8 | 0 | 0 | 358342 |
+| `trace02` | 18967116 | 715704 | 0.0377 | 18251412 | 357836 | 16 | 16 | 16 | 0 | 0 | 358812 |
+| `trace03` | 22547038 | 715752 | 0.0317 | 21831286 | 0 | 357876 | 357876 | 17 | 0 | 0 | 3937486 |
+| `trace04` | 20761872 | 715728 | 0.0345 | 20046144 | 178516 | 179348 | 179348 | 32 | 0 | 0 | 2152944 |
+| `trace05` | 22418658 | 715732 | 0.0319 | 21702926 | 13010 | 344856 | 344856 | 64 | 0 | 0 | 3809626 |
+| `trace06` | 40438632 | 715728 | 0.0177 | 39722904 | 0 | 357864 | 357864 | 357864 | 357800 | 107798 | 21829704 |
+| `trace07` | 23451884 | 715736 | 0.0305 | 22736148 | 208880 | 148988 | 148988 | 59900 | 59836 | 57100 | 4842748 |
+| `trace08` | 40439310 | 715740 | 0.0177 | 39723570 | 0 | 357870 | 357870 | 357870 | 357806 | 71269 | 21830070 |
+| `trace09` | 40439988 | 715752 | 0.0177 | 39724236 | 0 | 357876 | 357876 | 357876 | 357812 | 125515 | 21830436 |
+| `trace10` | 19779898 | 715712 | 0.0362 | 19064186 | 285083 | 72773 | 72773 | 1716 | 1652 | 1652 | 1171386 |
+
+---
+
 ## ⚖️ Architectural Decisions
 
 | Decision | Rationale |
