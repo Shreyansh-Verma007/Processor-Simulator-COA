@@ -40,8 +40,12 @@
 ```java
 package vm;
 import common.Config;
+import core.Memory;
+import cache.CacheHierarchy;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.Map;
+import java.util.HashMap;
 ```
 
 ---
@@ -52,13 +56,20 @@ import java.util.Queue;
 private final TLB tlb;
 private final PageTable pageTable;
 private final Config cfg;
+private final Memory physicalMemory;
+private CacheHierarchy cacheHierarchy;
+
 private final int numFrames;
 private final Queue<Integer> freeFrames;
 private final boolean useLRU;
 private long clock = 0;
 
+private final Map<Integer, int[]> swapSpace = new HashMap<>();
+private long swapOuts = 0;
+private long swapIns = 0;
+
 // Statistics
-private int pageWalks, pageFaults, pageEvictions, dirtyEvictions;
+private long pageWalks, pageFaults, pageEvictions, dirtyEvictions;
 private long totalTranslationPenalty;
 ```
 
@@ -66,17 +77,19 @@ private long totalTranslationPenalty;
 |-------|-------------|
 | `tlb` | The data TLB instance |
 | `pageTable` | The flat page table |
+| `physicalMemory` | The physical memory instance for swap integration |
+| `cacheHierarchy` | Optional reference to caches for PIPT invalidation |
 | `numFrames` | Total physical frames = `physicalSizeBytes / pageSizeBytes` |
 | `freeFrames` | Queue of available frame numbers |
 | `useLRU` | Replacement policy flag |
-| `clock` | Monotonic counter for LRU/FIFO timestamps |
+| `swapSpace` | Simulated disk swap space mapping VPNs to page data |
 
 ---
 
 ## Constructor
 
 ```java
-public VirtualMemoryUnit(Config cfg)
+public VirtualMemoryUnit(Config cfg, Memory physicalMemory)
 ```
 
 Initializes the TLB, page table, and free frame pool. The free frame list is populated with frame numbers 0 through `numFrames - 1`.
@@ -127,9 +140,10 @@ Selects a victim page for eviction using the configured policy:
 
 On eviction:
 1. Increments `pageEvictions`
-2. Checks dirty bit (both PTE and TLB) — if dirty, increments `dirtyEvictions`
+2. Checks dirty bit (both PTE and TLB) — if dirty, increments `dirtyEvictions` and saves to `swapSpace`
 3. Invalidates the victim in both TLB and page table
-4. Returns the freed frame number
+4. Uses `cacheHierarchy.invalidateFrameLines()` to flush stale PIPT entries
+5. Returns the freed frame number
 
 ---
 
@@ -191,7 +205,8 @@ Virtual Address
 
 | Method | Visibility | Return | Purpose |
 |--------|-----------|--------|---------|
-| `VirtualMemoryUnit(cfg)` | `public` | — | Constructor |
+| `VirtualMemoryUnit(cfg, physicalMemory)` | `public` | — | Constructor |
+| `setCacheHierarchy(cache)` | `public` | `void` | Connect caches for frame invalidation |
 | `translateAddress(va, isStore)` | `public` | `TranslationResult` | Full translation pipeline |
 | `allocateFrame()` | `private` | `int` | Get a free frame (or evict) |
 | `evictPage()` | `private` | `int` | LRU/FIFO page replacement |

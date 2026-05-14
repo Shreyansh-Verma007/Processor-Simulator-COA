@@ -1,20 +1,51 @@
 === Swap Space Dump ===
-Swap Outs (writes): 1652
-Swap Ins  (reads) : 1636
-Resident in swap  : 16
-  VPN 65537: 1024 words
-  VPN 65539: 1024 words
-  VPN 65538: 1024 words
-  VPN 65541: 1024 words
-  VPN 65540: 1024 words
-  VPN 65543: 1024 words
+Swap Outs (writes): 71269
+Swap Ins  (reads) : 71222
+Resident in swap  : 47
+  VPN 65665: 1024 words
+  VPN 65664: 1024 words
+  VPN 65667: 1024 words
+  VPN 65671: 1024 words
   VPN 65545: 1024 words
   VPN 65544: 1024 words
-  VPN 65547: 1024 words
-  VPN 65546: 1024 words
-  VPN 65549: 1024 words
   VPN 65548: 1024 words
-  VPN 65551: 1024 words
   VPN 65553: 1024 words
+  VPN 65681: 1024 words
   VPN 65552: 1024 words
-  VPN 65554: 1024 words
+  VPN 65557: 1024 words
+  VPN 65687: 1024 words
+  VPN 65558: 1024 words
+  VPN 65691: 1024 words
+  VPN 65565: 1024 words
+  VPN 65567: 1024 words
+  VPN 65695: 1024 words
+  VPN 65694: 1024 words
+  VPN 65570: 1024 words
+  VPN 65702: 1024 words
+  VPN 65707: 1024 words
+  VPN 65708: 1024 words
+  VPN 65583: 1024 words
+  VPN 65582: 1024 words
+  VPN 65586: 1024 words
+  VPN 65588: 1024 words
+  VPN 65594: 1024 words
+  VPN 65606: 1024 words
+  VPN 65615: 1024 words
+  VPN 65621: 1024 words
+  VPN 65623: 1024 words
+  VPN 65631: 1024 words
+  VPN 65630: 1024 words
+  VPN 65633: 1024 words
+  VPN 65632: 1024 words
+  VPN 65634: 1024 words
+  VPN 65637: 1024 words
+  VPN 65639: 1024 words
+  VPN 65645: 1024 words
+  VPN 65644: 1024 words
+  VPN 65774: 1024 words
+  VPN 65778: 1024 words
+  VPN 65650: 1024 words
+  VPN 65654: 1024 words
+  VPN 65661: 1024 words
+  VPN 65791: 1024 words
+  VPN 65662: 1024 words

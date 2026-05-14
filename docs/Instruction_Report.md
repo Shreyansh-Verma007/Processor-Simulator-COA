@@ -8,9 +8,9 @@
 
 ## Overview
 
-`Instruction` is a Java **record** that represents a single decoded RISC-V instruction. It provides static factory methods for each instruction format type to ensure correct field mapping.
+`Instruction` is a Java **class** that represents a single decoded RISC-V instruction. It provides static factory methods for each instruction format type to ensure correct field mapping.
 
-**Record Fields:**
+**Class Fields:**
 - `opcode` — the `Opcode` enum value
 - `rd` — destination register index
 - `rs1` — source register 1 index

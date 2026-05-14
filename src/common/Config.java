@@ -15,20 +15,21 @@ public class Config {
     private boolean forwardingEnabled;
 
     // ── Default cache parameters (single source of truth) ────────────────
-    private static final int DEF_L1I_SIZE = 4096;
-    private static final int DEF_L1I_BLOCK = 64;
-    private static final int DEF_L1I_ASSOC = 1;
+    // Updated realistic cache defaults (sizes in bytes)
+    private static final int DEF_L1I_SIZE = 32768;  // 32 KB L1 instruction cache
+    private static final int DEF_L1I_BLOCK = 64;    // 64 B block
+    private static final int DEF_L1I_ASSOC = 4;    // 4‑way set associative
     private static final int DEF_L1I_LATENCY = 1;
 
-    private static final int DEF_L1D_SIZE = 4096;
+    private static final int DEF_L1D_SIZE = 32768;  // 32 KB L1 data cache
     private static final int DEF_L1D_BLOCK = 64;
-    private static final int DEF_L1D_ASSOC = 1;
+    private static final int DEF_L1D_ASSOC = 4;
     private static final int DEF_L1D_LATENCY = 1;
 
-    private static final int DEF_L2_SIZE = 8192;
+    private static final int DEF_L2_SIZE = 262144; // 256 KB L2 cache
     private static final int DEF_L2_BLOCK = 64;
-    private static final int DEF_L2_ASSOC = 4;
-    private static final int DEF_L2_LATENCY = 50;
+    private static final int DEF_L2_ASSOC = 8;
+    private static final int DEF_L2_LATENCY = 10;
 
     private static final int DEF_MEMORY_LATENCY = 50;
     private static final ReplacementPolicy DEF_POLICY = ReplacementPolicy.LRU;
