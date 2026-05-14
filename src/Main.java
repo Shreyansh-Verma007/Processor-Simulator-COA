@@ -65,7 +65,7 @@ public class Main {
 
         try (PrintStream out = new PrintStream(new FileOutputStream(outFile))) {
             StatsPrinter.printTraceHeader(out, tracePath, configPath, instructions.size());
-            simulator.printStats(out);
+            StatsPrinter.printTraceStats(out, simulator.getStats());
             StatsPrinter.printConfigSection(out, cfg);
         }
 
@@ -132,7 +132,7 @@ public class Main {
 
             try (PrintStream out = new PrintStream(new FileOutputStream(outFile))) {
                 StatsPrinter.printTraceHeader(out, traceFile.getPath(), configPath, instructions.size());
-                simulator.printStats(out);
+                StatsPrinter.printTraceStats(out, simulator.getStats());
                 StatsPrinter.printConfigSection(out, cfg);
             }
         }

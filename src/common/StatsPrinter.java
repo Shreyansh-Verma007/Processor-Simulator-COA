@@ -87,10 +87,19 @@ public class StatsPrinter {
         out.println();
 
         out.println("--- Cache Statistics ---");
+        out.printf("L1I Hits                  : %d%n", stats.l1iHits);
+        out.printf("L1I Misses                : %d%n", stats.l1iMisses);
+        out.printf("L1I Miss Rate             : %.4f%n", stats.getMissRate(stats.l1iHits, stats.l1iMisses));
+        out.println();
+        
         out.printf("L1D Hits                  : %d%n", stats.l1dHits);
         out.printf("L1D Misses                : %d%n", stats.l1dMisses);
-        out.printf("L1D Miss Rate             : %.4f%n",
-                stats.getMissRate(stats.l1dHits, stats.l1dMisses));
+        out.printf("L1D Miss Rate             : %.4f%n", stats.getMissRate(stats.l1dHits, stats.l1dMisses));
+        out.println();
+        
+        out.printf("L2 Hits                   : %d%n", stats.l2Hits);
+        out.printf("L2 Misses                 : %d%n", stats.l2Misses);
+        out.printf("L2 Miss Rate              : %.4f%n", stats.getMissRate(stats.l2Hits, stats.l2Misses));
     }
 
     // ── Shared Config Section ────────────────────────────────────────────

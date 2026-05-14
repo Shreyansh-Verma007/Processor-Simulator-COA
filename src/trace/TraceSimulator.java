@@ -187,50 +187,6 @@ public class TraceSimulator {
         }
     }
 
-    /**
-     * Print all simulation statistics.
-     */
-    public void printStats(PrintStream out) {
-        out.println("=== Trace Replay Simulation Stats ===");
-        out.println();
-
-        out.println("--- Execution ---");
-        out.println("Total Cycles              : " + stats.cycles);
-        out.println("Instructions Retired      : " + stats.instructionsRetired);
-        out.printf("IPC                       : %.4f%n", stats.getIPC());
-        out.println("Stalls                    : " + stats.stalls);
-        out.println();
-
-        out.println("--- Virtual Memory ---");
-        out.println("TLB Hits                  : " + stats.tlbHits);
-        out.println("TLB Misses                : " + stats.tlbMisses);
-        out.printf("TLB Hit Rate              : %.4f%n",
-                (stats.tlbHits + stats.tlbMisses) == 0 ? 0.0 :
-                        (double) stats.tlbHits / (stats.tlbHits + stats.tlbMisses));
-        out.println("Page Walks                : " + stats.pageWalks);
-        out.println("Page Faults               : " + stats.pageFaults);
-        out.println("Page Evictions            : " + stats.pageEvictions);
-        out.println("Dirty Evictions           : " + stats.dirtyEvictions);
-        out.println("Swap Outs (to disk)       : " + stats.swapOuts);
-        out.println("Swap Ins  (from disk)     : " + stats.swapIns);
-        out.println("Translation Penalty Cycles: " + stats.totalTranslationPenaltyCycles);
-        out.println();
-
-        out.println("--- Cache Statistics ---");
-        out.printf("L1I Hits                  : %d%n", stats.l1iHits);
-        out.printf("L1I Misses                : %d%n", stats.l1iMisses);
-        out.printf("L1I Miss Rate             : %.4f%n", stats.getMissRate(stats.l1iHits, stats.l1iMisses));
-        out.println();
-        
-        out.printf("L1D Hits                  : %d%n", stats.l1dHits);
-        out.printf("L1D Misses                : %d%n", stats.l1dMisses);
-        out.printf("L1D Miss Rate             : %.4f%n", stats.getMissRate(stats.l1dHits, stats.l1dMisses));
-        out.println();
-        
-        out.printf("L2 Hits                   : %d%n", stats.l2Hits);
-        out.printf("L2 Misses                 : %d%n", stats.l2Misses);
-        out.printf("L2 Miss Rate              : %.4f%n", stats.getMissRate(stats.l2Hits, stats.l2Misses));
-    }
 
     public Stats getStats() {
         return stats;
