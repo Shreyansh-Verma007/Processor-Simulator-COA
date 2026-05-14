@@ -212,15 +212,8 @@
 **Members:** Suhail Sahib, Shreyansh Verma
 
 #### Decisions:
-- Conducted a comprehensive senior-engineer audit of the full codebase (~4K LoC, 41 Java files) and applied 20 targeted correctness and robustness fixes across 12 source files.
-- Fixed critical `DIV` instruction overflow: guarded against `Integer.MIN_VALUE / -1` producing an `ArithmeticException`; added explicit divide-by-zero early return per RISC-V spec.
-- Replaced the naive comment-stripping logic in `Lexer` with a quote-aware char-by-char scan so that `#` or `//` inside `.ascii` string literals is no longer incorrectly stripped.
-- Promoted all simulation counters (`hits`, `misses`, `pageWalks`, `pageFaults`, `pageEvictions`, `dirtyEvictions`, `swapOuts`, `swapIns`, `cycles`, `stalls`, etc.) from `int` to `long` across `TLB`, `VirtualMemoryUnit`, and `Stats` to prevent silent overflow on large traces (>2.1B events).
-- Fixed `TraceSimulator` no-cache paths to charge the configured `mainMemoryLatency` instead of a hardcoded `1` cycle, correcting cycle counts when running without a cache.
-- Fixed `InstructionEncoder.decode()` to sign-extend the 12-bit immediate for load and store instructions, ensuring negative offsets (e.g., `lw t0, -4(sp)`) decode correctly.
-- Added input validation to `TLB` constructor (rejects `numEntries < 1`), `Memory` constructor (validates positive, word-aligned size), `TraceParser` (register range 0–31, `parseUnsignedInt` for addresses), and `Compiler` (text-segment overflow guard, empty-arg filtering, hex support in `.space`, unterminated string detection).
-- Fixed double memory fetch in `CacheHierarchy.fetchBlockToL1` on L2 miss: the block is now built once and reused for L2 insertion, correctly handling L1/L2 block-size mismatches.
-- Removed the dead `recordMiss()` public method from `CacheLevel` that could cause external double-counting of misses.
-- **Critical correctness fix (PIPT cache invalidation):** Identified and fixed a frame-reassignment invalidation bug. When a physical frame was evicted and reassigned to a new virtual page, stale L1D cache lines tagged with the old frame's physical addresses remained valid, producing false cache hits. Added `CacheLevel.invalidateFrameLines()` (scans all sets for lines in the evicted frame's address range and invalidates them) and wired it through `CacheHierarchy.invalidateFrame()` into `VirtualMemoryUnit.evictPage()`. Verified against trace06: L1D hit rate corrected from 99.98% (false) to 0.0% (correct), total cycles updated from 22.9M to 40.8M.
-- Cross-validated all 10 trace results against a reference implementation: page fault counts, eviction counts, dirty eviction counts, and TLB hit rates all match exactly; cycle count differences are fully explained by differing `main_memory_latency` defaults in each team's configuration.
+- Applied 20 correctness and robustness fixes across 12 files based on a full codebase audit (DIV overflow, Lexer quote-aware comment stripping, `int` → `long` stat counters, memory latency fix, input validation, dead code removal, CacheHierarchy double-fetch fix).
+- Fixed a critical PIPT cache invalidation bug: stale L1D lines from evicted frames caused false hits on reassigned pages; verified trace06 L1D hit rate corrected from 99.98% to 0.0%.
+- Cross-validated all 10 trace outputs against a reference implementation; VM metrics match exactly.
+
 
