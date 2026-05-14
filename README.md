@@ -388,7 +388,6 @@ src/
 │
 ├── trace/                           Trace replay subsystem
 │   ├── TraceSimulator.java          VM + cache simulation engine
-│   ├── TraceDataCache.java          Write-back L1D cache for trace mode
 │   ├── TraceParser.java             L/S/ADD/MUL trace file parser
 │   └── TraceInstruction.java        Trace instruction data class
 │

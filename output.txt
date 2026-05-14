@@ -1,40 +1,40 @@
 === RISC-V Trace Replay Simulator ===
-Trace : phase3_traces/phase3_traces/trace07.trace
-Config: config.txt
-Instructions: 715736
+Trace : phase3_traces/phase3_traces/trace01.trace
+Config: default (Config.java)
+Instructions: 715724
 
 === Trace Replay Simulation Stats ===
 
 --- Execution ---
-Total Cycles              : 40775202
-Instructions Retired      : 715736
-IPC                       : 0.0176
-Stalls                    : 40059466
+Total Cycles              : 37218128
+Instructions Retired      : 715724
+IPC                       : 0.0192
+Stalls                    : 36502404
 
 --- Virtual Memory ---
-TLB Hits                  : 208880
-TLB Misses                : 148988
-TLB Hit Rate              : 0.5837
-Page Walks                : 148988
-Page Faults               : 59900
-Page Evictions            : 59836
-Dirty Evictions           : 57100
-Swap Outs (to disk)       : 57100
-Swap Ins  (from disk)     : 57069
-Translation Penalty Cycles: 4842748
+TLB Hits                  : 357854
+TLB Misses                : 8
+TLB Hit Rate              : 1.0000
+Page Walks                : 8
+Page Faults               : 8
+Page Evictions            : 0
+Dirty Evictions           : 0
+Swap Outs (to disk)       : 0
+Swap Ins  (from disk)     : 0
+Translation Penalty Cycles: 358342
 
 --- Cache Statistics ---
 L1I Hits                  : 0
 L1I Misses                : 0
 L1I Miss Rate             : 0.0000
 
-L1D Hits                  : 6736
-L1D Misses                : 351132
-L1D Miss Rate             : 0.9812
+L1D Hits                  : 0
+L1D Misses                : 357862
+L1D Miss Rate             : 1.0000
 
-L2 Hits                   : 5087
-L2 Misses                 : 346045
-L2 Miss Rate              : 0.9855
+L2 Hits                   : 0
+L2 Misses                 : 357862
+L2 Miss Rate              : 1.0000
 
 --- Configuration ---
 Virtual Memory    : 536870912 bytes

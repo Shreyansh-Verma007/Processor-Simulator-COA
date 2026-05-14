@@ -1,6 +1,5 @@
 === RISC-V Pipeline Simulator ===
 Loading: input.asm
-Config: config.txt
 Compiled 22 instructions.
 
 
