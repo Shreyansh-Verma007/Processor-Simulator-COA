@@ -217,7 +217,7 @@
 
 > 22-instruction program with loops, branches, loads/stores, and arithmetic
 
-**Config:** L1I=1KB/2-way/5c, L1D=4KB/1-way/1c, L2=8KB/4-way/50c, Mem=200c, Forwarding=ON
+**Config:** `L1I=1KB / 2-way / 5c` · `L1D=4KB / 1-way / 1c` · `L2=8KB / 4-way / 50c` · `Mem=200c` · `Forwarding=ON`
 
 ```
 ╔══════════════════════════════════════════════╗
@@ -237,40 +237,20 @@
 
 ### Trace Replay Mode — 10 Traces (~715K instructions each)
 
-**Config:** LRU, 16 DTLB entries, 64 physical frames (256KB), 4KB direct-mapped L1D (1cy hit), 8KB 4-way L2 (50cy hit, 50cy memory), PIPT
+**Config:** `LRU` · `16 DTLB entries` · `64 physical frames (256KB)` · `4KB direct-mapped L1D (1cy hit)` · `No L2` · `PIPT`
 
-| Trace | Cycles | IPC | TLB Hit Rate | Page Faults | Evictions | Dirty Evictions | Swap Out | Swap In | L1D Miss Rate | L1I Miss Rate | L2 Miss Rate |
-|:-----:|-------:|:---:|:------------:|:-----------:|:---------:|:---------------:|:--------:|:-------:|:-------------:|:-------------:|:------------:|
-| 01 | 37,218,128 | 0.0192 | **100.0%** | 8 | 0 | 0 | 0 | 0 | 100.0% | 0.0% | 100.0% |
-| 02 | 37,217,568 | 0.0192 | **100.0%** | 16 | 0 | 0 | 0 | 0 | 100.0% | 0.0% | 100.0% |
-| 03 | 40,798,714 | 0.0175 | 0.0% | 17 | 0 | 0 | 0 | 0 | 100.0% | 0.0% | 100.0% |
-| 04 | 37,262,236 | 0.0192 | 49.9% | 32 | 0 | 0 | 0 | 0 | 96.9% | 0.0% | 96.4% |
-| 05 | 40,638,374 | 0.0176 | 3.6% | 64 | 0 | 0 | 0 | 0 | 100.0% | 0.0% | 99.9% |
-| 06 | 22,909,696 | **0.0312** | 0.0% | 357,864 | 357,800 | 107,798 | 107,798 | 107,793 | **0.02%** | 0.0% | 100.0% |
-| 07 | 40,775,202 | 0.0176 | 58.4% | 59,900 | 59,836 | 57,100 | 57,100 | 57,069 | 98.1% | 0.0% | 98.6% |
-| 08 | 22,910,080 | **0.0312** | 0.0% | 357,870 | 357,806 | 71,269 | 71,269 | 71,222 | **0.02%** | 0.0% | 100.0% |
-| 09 | **58,691,664** | 0.0122 | 0.0% | 357,876 | 357,812 | 125,515 | 125,515 | 125,492 | 100.0% | 0.0% | 100.0% |
-| 10 | 35,322,154 | 0.0203 | 79.7% | 1,716 | 1,652 | 1,652 | 1,652 | 1,636 | 95.1% | 0.0% | 94.4% |
-
-### Key Observations
-
-**Traces 1–2 (Best TLB, Worst Cache):**
-Near-perfect TLB locality (100% hit rate) with only 8–16 unique pages. However, 100% L1D miss rate — the 8-page stride pattern creates systematic cache conflicts in the 4KB direct-mapped L1D, and subsequently thrashes the L2. Every memory access pays the full 100-cycle L2 + memory penalty.
-
-**Traces 6, 8 (Worst VM, Best Cache — The Paradox):**
-Maximum page fault pressure — every single L/S instruction triggers a page fault (357K+ total), overwhelming 64 physical frames. **107K–71K dirty evictions** are saved to swap and selectively restored on re-access, ensuring correctness. Yet paradoxically, these traces achieve the **lowest non-translation cache penalty** because after translation, physical addresses map to a small set of cache lines, yielding 99.98% L1D hit rate. The expensive translation is offset by nearly free cache access.
-
-**Trace 9 (Absolute Worst Case):**
-Zero TLB hits combined with 100% L1D and L2 miss rates. Every memory operation pays: TLB miss (10 cycles page walk) + page fault (50 cycles) + cache miss (100 cycles). **125K dirty evictions** are swap-saved. Results in the highest total cycle count: **58.7 million cycles** for 715K instructions.
-
-**Trace 7 (Heavy Swap):**
-57,100 dirty evictions, all saved to swap with 57,069 restored — meaning nearly every evicted dirty page is re-accessed, validating that the swap round-trip preserves register computation correctness.
-
-**Trace 10 (Best Overall):**
-Good TLB locality (79.7%), only 1,716 page faults, and moderate cache reuse. All 1,652 evictions were dirty (saved to swap), with 1,636 restored. Achieves a much lower cycle count of **35.3 million**.
-
----
-
+| Trace | Total Cycles | Instr Retired | IPC | Stalls | TLB Hits | TLB Misses | Page Walks | Page Faults | Evictions | Dirty Evic | Translation Penalty |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `trace01` | 18967166 | 715724 | 0.0377 | 18251442 | 357854 | 8 | 8 | 8 | 0 | 0 | 358342 |
+| `trace02` | 18967116 | 715704 | 0.0377 | 18251412 | 357836 | 16 | 16 | 16 | 0 | 0 | 358812 |
+| `trace03` | 22547038 | 715752 | 0.0317 | 21831286 | 0 | 357876 | 357876 | 17 | 0 | 0 | 3937486 |
+| `trace04` | 20761872 | 715728 | 0.0345 | 20046144 | 178516 | 179348 | 179348 | 32 | 0 | 0 | 2152944 |
+| `trace05` | 22418658 | 715732 | 0.0319 | 21702926 | 13010 | 344856 | 344856 | 64 | 0 | 0 | 3809626 |
+| `trace06` | 40438632 | 715728 | 0.0177 | 39722904 | 0 | 357864 | 357864 | 357864 | 357800 | 107798 | 21829704 |
+| `trace07` | 23451884 | 715736 | 0.0305 | 22736148 | 208880 | 148988 | 148988 | 59900 | 59836 | 57100 | 4842748 |
+| `trace08` | 40439310 | 715740 | 0.0177 | 39723570 | 0 | 357870 | 357870 | 357870 | 357806 | 71269 | 21830070 |
+| `trace09` | 40439988 | 715752 | 0.0177 | 39724236 | 0 | 357876 | 357876 | 357876 | 357812 | 125515 | 21830436 |
+| `trace10` | 19779898 | 715712 | 0.0362 | 19064186 | 285083 | 72773 | 72773 | 1716 | 1652 | 1652 | 1171386 |
 ## 📜 Supported ISA
 
 | Type | Instructions | Description |
@@ -434,39 +414,3 @@ java -cp out Main --trace-all phase3_traces             # batch (all .trace file
 
 ---
 
-## 📊 Trace Replay Results
-
-Below are the Phase 3 evaluation statistics for all 10 provided trace files under the mandatory hardware configuration (256KB Physical Memory, 16 DTLB, 4KB Direct Mapped L1, No L2).
-
-| Trace | Total Cycles | Instr Retired | IPC | Stalls | TLB Hits | TLB Misses | Page Walks | Page Faults | Evictions | Dirty Evic | Translation Penalty |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| `trace01` | 18967166 | 715724 | 0.0377 | 18251442 | 357854 | 8 | 8 | 8 | 0 | 0 | 358342 |
-| `trace02` | 18967116 | 715704 | 0.0377 | 18251412 | 357836 | 16 | 16 | 16 | 0 | 0 | 358812 |
-| `trace03` | 22547038 | 715752 | 0.0317 | 21831286 | 0 | 357876 | 357876 | 17 | 0 | 0 | 3937486 |
-| `trace04` | 20761872 | 715728 | 0.0345 | 20046144 | 178516 | 179348 | 179348 | 32 | 0 | 0 | 2152944 |
-| `trace05` | 22418658 | 715732 | 0.0319 | 21702926 | 13010 | 344856 | 344856 | 64 | 0 | 0 | 3809626 |
-| `trace06` | 40438632 | 715728 | 0.0177 | 39722904 | 0 | 357864 | 357864 | 357864 | 357800 | 107798 | 21829704 |
-| `trace07` | 23451884 | 715736 | 0.0305 | 22736148 | 208880 | 148988 | 148988 | 59900 | 59836 | 57100 | 4842748 |
-| `trace08` | 40439310 | 715740 | 0.0177 | 39723570 | 0 | 357870 | 357870 | 357870 | 357806 | 71269 | 21830070 |
-| `trace09` | 40439988 | 715752 | 0.0177 | 39724236 | 0 | 357876 | 357876 | 357876 | 357812 | 125515 | 21830436 |
-| `trace10` | 19779898 | 715712 | 0.0362 | 19064186 | 285083 | 72773 | 72773 | 1716 | 1652 | 1652 | 1171386 |
-
----
-
-## ⚖️ Architectural Decisions
-
-| Decision | Rationale |
-|----------|-----------|
-| **Reverse-order stage ticking** (WB→IF) | Simulates half-cycle write-first/read-second — WB writes are visible to ID in the same cycle |
-| **Serialized cache miss handling** | Models a single-ported shared memory bus (MEM miss prioritized over IF miss) |
-| **BTFNT in ID, resolution in EX** | Keeps branch prediction simple while allowing 2-cycle recovery on mispredict |
-| **3-cycle HALT drain** | Lets in-flight MEM/WB instructions retire gracefully before termination |
-| **Null-safe CacheHierarchy** | L2=null makes L1 misses go to memory — eliminates need for separate trace cache class |
-| **Flat page table** | O(1) lookup by VPN index; sufficient for 32-bit addresses with 4KB pages |
-| **Unified Stats class** | Both pipeline and trace modes write to the same metrics object — consistent reporting |
-
----
-
-<p align="center">
-  <strong>Cycle Accurate · Set-Associative Cache · Virtual Memory · BTFNT Predicted · Trace Replay · Modular</strong>
-</p>
