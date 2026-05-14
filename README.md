@@ -480,7 +480,7 @@ java -cp out Main --trace-all phase3_traces             # batch (all .trace file
 
 ## ✅ Testing & Validation
 
-This simulator was rigorously developed and tested against stringent academic correctness standards for the CS209P Phase 3 evaluation:
+This simulator was rigorously developed and tested against stringent academic correctness standards for advanced processor architecture evaluation:
 - **Reference Traces**: Executed against 10 multi-megabyte `L`/`S`/`ADD`/`MUL` traces.
 - **Cache Coherence**: Verified that the L1D cache miss rate correctly skyrockets under constrained physical memory due to strict PIPT cache invalidation during frame evictions.
 - **Register State**: Verified exact execution flow and swap space persistence (validated via `swap.txt` inspection and Swap-In metrics matching exactly with expected dirty-page reloads).
@@ -506,5 +506,5 @@ While fully cycle-accurate and strictly robust, this is currently an in-order sc
 
 <p align="center">
   <br><br>
-  <strong>Cycle-Accurate &middot; Hardware Faithful &middot; CS209P Phase 3 Finalist</strong>
+  <strong>Cycle-Accurate &middot; Hardware Faithful &middot; Advanced Architecture Project</strong>
 </p>
