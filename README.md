@@ -19,6 +19,24 @@
 
 ---
 
+## 📑 Table of Contents
+
+- [🎯 Project Highlights](#-project-highlights)
+- [📐 System Architecture](#-system-architecture)
+- [🏗️ Pipeline Deep Dive](#️-pipeline-deep-dive)
+- [🗄️ Cache Hierarchy](#️-cache-hierarchy)
+- [🧠 Virtual Memory Subsystem](#-virtual-memory-subsystem)
+- [📊 Performance Results](#-performance-results)
+- [📜 Supported ISA](#-supported-isa)
+- [⚙️ Configuration](#️-configuration)
+- [📂 Project Structure](#-project-structure)
+- [🛠️ Build & Run](#️-build--run)
+- [✅ Testing & Validation](#-testing--validation)
+- [⚖️ Architectural Decisions](#️-architectural-decisions)
+- [🚀 Future Work & Limitations](#-future-work--limitations)
+
+---
+
 ## 🎯 Project Highlights
 
 - **Cycle-Accurate Pipeline** — 5-stage IF→ID→EX→MEM→WB with precise stall/flush/drain mechanics
