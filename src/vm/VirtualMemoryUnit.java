@@ -11,6 +11,8 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 
+import cache.CacheHierarchy;
+
 /**
  * Orchestrates the virtual memory translation flow:
  *   TLB lookup → Page Table walk → Page Fault handling → Frame allocation.
@@ -25,6 +27,9 @@ public class VirtualMemoryUnit {
     private final Config cfg;
 
     private final Memory physicalMemory;
+
+    // Optional cache hierarchy for PIPT invalidation on frame eviction
+    private CacheHierarchy cacheHierarchy;
 
     // Physical frame management
     private final int numFrames;
@@ -59,6 +64,14 @@ public class VirtualMemoryUnit {
         for (int i = 0; i < numFrames; i++) {
             freeFrames.add(i);
         }
+    }
+
+    /**
+     * Set the cache hierarchy for PIPT frame invalidation.
+     * Must be called before running any trace that uses cache.
+     */
+    public void setCacheHierarchy(CacheHierarchy cache) {
+        this.cacheHierarchy = cache;
     }
 
     /**
@@ -180,6 +193,12 @@ public class VirtualMemoryUnit {
         if (isDirty) {
             dirtyEvictions++;
             saveToSwap(victimVPN, freedFrame);
+        }
+
+        // Invalidate stale PIPT cache lines for this frame (correctness)
+        if (cacheHierarchy != null) {
+            int frameBaseAddr = freedFrame * cfg.getPageSizeBytes();
+            cacheHierarchy.invalidateFrame(frameBaseAddr, cfg.getPageSizeBytes());
         }
 
         // Invalidate in TLB and page table
