@@ -90,4 +90,15 @@ public class Memory {
             }
         }
     }
+
+    /**
+     * Dumps the data segment for verification (e.g., sorted arrays).
+     */
+    public void dumpDataSegment(int startAddress, int numWords) {
+        System.out.println("\n=== Memory Dump (Data Segment) ===");
+        for (int i = 0; i < numWords; i++) {
+            int addr = startAddress + i * 4;
+            System.out.printf("0x%04X: %d\n", addr, readWord(addr));
+        }
+    }
 }

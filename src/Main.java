@@ -153,6 +153,28 @@ public class Main {
             System.out.println("Compiled " + result.getInstructions().size() + " instructions.\n");
 
             processor.run(result);
+
+            // If the program had a data segment, dump it to verify memory (e.g., sorted arrays)
+            if (result.getDataItems() != null && !result.getDataItems().isEmpty()) {
+                int totalBytes = 0;
+                int startAddr = result.getDataItems().get(0).address;
+                for (compiler.DataItem item : result.getDataItems()) {
+                    totalBytes += item.bytes.length;
+                }
+                int dataWords = (totalBytes + 3) / 4;
+                
+                System.out.println("\n=== Memory Dump (Data Segment) ===");
+                for (int i = 0; i < dataWords; i++) {
+                    int addr = startAddr + i * 4;
+                    int val;
+                    if (processor.getCache() != null) {
+                        val = processor.getCache().readData(addr).data;
+                    } else {
+                        val = processor.getMemory().readWord(addr);
+                    }
+                    System.out.printf("0x%04X: %d\n", addr, val);
+                }
+            }
         }
 
         // Write stats to output.txt via the shared StatsPrinter

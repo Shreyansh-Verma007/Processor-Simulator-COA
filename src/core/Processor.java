@@ -48,4 +48,12 @@ public class Processor {
     public Stats getStats() {
         return stats;
     }
+
+    public Memory getMemory() {
+        return mem;
+    }
+
+    public CacheHierarchy getCache() {
+        return cache;
+    }
 }
