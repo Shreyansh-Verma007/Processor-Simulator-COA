@@ -75,7 +75,7 @@ public class VirtualMemoryUnit {
         int offset = Integer.remainderUnsigned(virtualAddress, pageSizeBytes);
         int latency = 0;
 
-        // Step 1: TLB lookup
+        // Step 1: TLB lookup — always costs tlb_hit_latency (per spec)
         latency += cfg.getTlbHitLatency();
         int pfn = tlb.lookup(vpn);
 
@@ -95,7 +95,7 @@ public class VirtualMemoryUnit {
                 pte.lastUsed = clock++;
             }
         } else {
-            // TLB miss — need page walk
+            // TLB miss — page walk is EXTRA on top of TLB access (per spec)
             latency += cfg.getPageWalkLatency();
             pageWalks++;
 
