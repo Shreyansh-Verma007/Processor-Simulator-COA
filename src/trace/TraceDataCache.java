@@ -42,7 +42,7 @@ public class TraceDataCache {
             return new Result(val, cache.getConfig().latency);
         }
         // Miss — fetch block from memory, insert into cache
-        int latency = cache.getConfig().latency + memoryLatency;
+        int latency = memoryLatency;
         int[] block = fetchBlock(address);
         CacheLevel.EvictionResult evict = cache.insert(address, block);
         if (evict != null) {
@@ -61,8 +61,9 @@ public class TraceDataCache {
             cache.lookup(address);
             return new Result(0, cache.getConfig().latency);
         }
-        // Miss — fetch block, insert, then write
-        int latency = cache.getConfig().latency + memoryLatency;
+        // Miss — record the miss in stats, then fetch block from memory
+        cache.recordMiss();
+        int latency = memoryLatency;
         int[] block = fetchBlock(address);
         CacheLevel.EvictionResult evict = cache.insert(address, block);
         if (evict != null) {

@@ -203,6 +203,11 @@ public class CacheLevel {
         return misses;
     }
 
+    /** Manually record a miss (for external miss paths like write-allocate). */
+    public void recordMiss() {
+        misses++;
+    }
+
     public CacheConfig getConfig() {
         return config;
     }
