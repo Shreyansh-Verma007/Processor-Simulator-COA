@@ -293,4 +293,15 @@ public class CacheHierarchy {
     public CacheLevel getL2() {
         return l2;
     }
+
+    /**
+     * Invalidate all L1D cache lines within a physical frame.
+     * Must be called when a physical frame is evicted and reassigned
+     * to a new virtual page (PIPT correctness).
+     */
+    public void invalidateFrame(int frameBaseAddr, int frameSizeBytes) {
+        if (l1d != null) {
+            l1d.invalidateFrameLines(frameBaseAddr, frameSizeBytes);
+        }
+    }
 }

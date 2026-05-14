@@ -1,4 +1,9 @@
 === Swap Space Dump ===
-Swap Outs (writes): 0
-Swap Ins  (reads) : 0
-Resident in swap  : 0
+Swap Outs (writes): 107798
+Swap Ins  (reads) : 107793
+Resident in swap  : 5
+  VPN 65568: 1024 words
+  VPN 65575: 1024 words
+  VPN 65561: 1024 words
+  VPN 65560: 1024 words
+  VPN 65567: 1024 words

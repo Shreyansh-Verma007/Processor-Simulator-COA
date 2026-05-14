@@ -49,6 +49,8 @@ public class TraceSimulator {
             this.cache = new CacheHierarchy(
                     null, cfg.getL1D(), cfg.getL2(),
                     cfg.getMainMemoryLatency(), physicalMemory);
+            // Wire VMU → cache for PIPT frame invalidation on page eviction
+            this.vmu.setCacheHierarchy(this.cache);
         }
     }
 

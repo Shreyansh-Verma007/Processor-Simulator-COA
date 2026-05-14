@@ -181,6 +181,33 @@ public class CacheLevel {
         return victim;
     }
 
+    // ── Frame invalidation (for PIPT correctness on page eviction) ──────
+
+    /**
+     * Invalidate all cache lines whose physical block address falls within
+     * [frameBaseAddr, frameBaseAddr + frameSizeBytes). This MUST be called
+     * when a physical frame is evicted and reassigned to a new virtual page,
+     * otherwise the PIPT cache will serve stale data from the old page.
+     *
+     * Dirty lines are silently discarded — the caller (VMU) has already
+     * saved the frame's data to swap before calling this.
+     */
+    public void invalidateFrameLines(int frameBaseAddr, int frameSizeBytes) {
+        int blocksInFrame = frameSizeBytes / config.blockSize;
+        for (int b = 0; b < blocksInFrame; b++) {
+            int blockAddr = frameBaseAddr + b * config.blockSize;
+            int set = getSetIndex(blockAddr);
+            int tag = getTag(blockAddr);
+            for (int w = 0; w < config.associativity; w++) {
+                CacheLine line = sets[set][w];
+                if (line.valid && line.tag == tag) {
+                    line.valid = false;
+                    line.dirty = false;
+                }
+            }
+        }
+    }
+
     // ── Eviction result ──────────────────────────────────────────────────
 
     public static class EvictionResult {
