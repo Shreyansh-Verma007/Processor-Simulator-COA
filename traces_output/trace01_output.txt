@@ -6,10 +6,10 @@ Instructions: 715724
 === Trace Replay Simulation Stats ===
 
 --- Execution ---
-Total Cycles              : 1462648
+Total Cycles              : 18967166
 Instructions Retired      : 715724
-IPC                       : 0.4893
-Stalls                    : 746924
+IPC                       : 0.0377
+Stalls                    : 18251442
 
 --- Virtual Memory ---
 TLB Hits                  : 357854
@@ -28,22 +28,22 @@ L1I Hits                  : 0
 L1I Misses                : 0
 L1I Miss Rate             : 0.0000
 
-L1D Hits                  : 357350
-L1D Misses                : 512
-L1D Miss Rate             : 0.0014
+L1D Hits                  : 0
+L1D Misses                : 0
+L1D Miss Rate             : 0.0000
 
 L2 Hits                   : 0
-L2 Misses                 : 512
-L2 Miss Rate              : 1.0000
+L2 Misses                 : 0
+L2 Miss Rate              : 0.0000
 
 --- Configuration ---
 Virtual Memory    : 536870912 bytes
-Physical Memory   : 16777216 bytes
+Physical Memory   : 262144 bytes
 Page Size         : 4096 bytes
-DTLB Entries      : 256
+DTLB Entries      : 16
 TLB Hit Latency   : 1 cycles
 Page Walk Latency : 10 cycles
 Page Fault Latency: 50 cycles
 Replacement Policy: lru
 Forwarding        : enabled
-L1D Cache         : 65536B, 64B blocks, 8-way, 1-cycle, LRU
+L1D Cache         : 4096B, 64B blocks, 1-way, 1-cycle, LRU

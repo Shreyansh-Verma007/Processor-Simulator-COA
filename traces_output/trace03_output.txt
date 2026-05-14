@@ -6,44 +6,44 @@ Instructions: 715752
 === Trace Replay Simulation Stats ===
 
 --- Execution ---
-Total Cycles              : 3386684
+Total Cycles              : 22547038
 Instructions Retired      : 715752
-IPC                       : 0.2113
-Stalls                    : 2670932
+IPC                       : 0.0317
+Stalls                    : 21831286
 
 --- Virtual Memory ---
-TLB Hits                  : 357859
-TLB Misses                : 17
-TLB Hit Rate              : 1.0000
-Page Walks                : 17
+TLB Hits                  : 0
+TLB Misses                : 357876
+TLB Hit Rate              : 0.0000
+Page Walks                : 357876
 Page Faults               : 17
 Page Evictions            : 0
 Dirty Evictions           : 0
 Swap Outs (to disk)       : 0
 Swap Ins  (from disk)     : 0
-Translation Penalty Cycles: 358896
+Translation Penalty Cycles: 3937486
 
 --- Cache Statistics ---
 L1I Hits                  : 0
 L1I Misses                : 0
 L1I Miss Rate             : 0.0000
 
-L1D Hits                  : 167900
-L1D Misses                : 189976
-L1D Miss Rate             : 0.5308
+L1D Hits                  : 0
+L1D Misses                : 0
+L1D Miss Rate             : 0.0000
 
-L2 Hits                   : 188888
-L2 Misses                 : 1088
-L2 Miss Rate              : 0.0057
+L2 Hits                   : 0
+L2 Misses                 : 0
+L2 Miss Rate              : 0.0000
 
 --- Configuration ---
 Virtual Memory    : 536870912 bytes
-Physical Memory   : 16777216 bytes
+Physical Memory   : 262144 bytes
 Page Size         : 4096 bytes
-DTLB Entries      : 256
+DTLB Entries      : 16
 TLB Hit Latency   : 1 cycles
 Page Walk Latency : 10 cycles
 Page Fault Latency: 50 cycles
 Replacement Policy: lru
 Forwarding        : enabled
-L1D Cache         : 65536B, 64B blocks, 8-way, 1-cycle, LRU
+L1D Cache         : 4096B, 64B blocks, 1-way, 1-cycle, LRU

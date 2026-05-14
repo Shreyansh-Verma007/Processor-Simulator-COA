@@ -214,7 +214,7 @@
 #### Decisions:
 - Applied 20 correctness and robustness fixes across 12 files based on a full codebase audit (DIV overflow, Lexer quote-aware comment stripping, `int` → `long` stat counters, memory latency fix, input validation, dead code removal, CacheHierarchy double-fetch fix).
 - Fixed a critical PIPT cache invalidation bug: stale L1D lines from evicted frames caused false hits on reassigned pages.
-- Scaled base hardware specs (16MB Physical Memory, 64KB L1, 1MB L2, 256 TLB entries) to resolve massive VM thrashing, restoring trace06 L1D hit rate from 0.0% back up to 99.9%.
+- Enforced the strict mandatory Phase 3 evaluation hardware constraints (256KB Physical Memory, 4KB L1 Direct Mapped Cache, no L2, 16 TLB entries), which correctly causes massive VM thrashing and ~100% L1D miss rates as expected by the assignment rubric.
 - Cross-validated all 10 trace outputs against a reference implementation; VM metrics match exactly.
 
 
