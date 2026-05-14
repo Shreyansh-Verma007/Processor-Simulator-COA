@@ -13,19 +13,19 @@ public class Config {
 
     // ── Default cache parameters (single source of truth) ────────────────
     // Updated realistic cache defaults (sizes in bytes)
-    private static final int DEF_L1I_SIZE = 32768;  // 32 KB L1 instruction cache
+    private static final int DEF_L1I_SIZE = 65536;  // 64 KB L1 instruction cache
     private static final int DEF_L1I_BLOCK = 64;    // 64 B block
-    private static final int DEF_L1I_ASSOC = 4;    // 4‑way set associative
+    private static final int DEF_L1I_ASSOC = 8;    // 8‑way set associative
     private static final int DEF_L1I_LATENCY = 1;
 
-    private static final int DEF_L1D_SIZE = 32768;  // 32 KB L1 data cache
+    private static final int DEF_L1D_SIZE = 65536;  // 64 KB L1 data cache
     private static final int DEF_L1D_BLOCK = 64;
-    private static final int DEF_L1D_ASSOC = 4;
+    private static final int DEF_L1D_ASSOC = 8;
     private static final int DEF_L1D_LATENCY = 1;
 
-    private static final int DEF_L2_SIZE = 262144; // 256 KB L2 cache
+    private static final int DEF_L2_SIZE = 1048576; // 1 MB L2 cache
     private static final int DEF_L2_BLOCK = 64;
-    private static final int DEF_L2_ASSOC = 8;
+    private static final int DEF_L2_ASSOC = 16;
     private static final int DEF_L2_LATENCY = 10;
 
     private static final int DEF_MEMORY_LATENCY = 50;
@@ -40,9 +40,9 @@ public class Config {
 
     // ── Virtual Memory parameters ────────────────────────────────────────
     private int virtualSizeBytes = 536870912;   // 512 MB default
-    private int physicalSizeBytes = 262144;     // 256 KB default
+    private int physicalSizeBytes = 16777216;   // 16 MB default
     private int pageSizeBytes = 4096;           // 4 KB default
-    private int dtlbEntries = 16;
+    private int dtlbEntries = 256;
     private int tlbHitLatency = 1;
     private int pageWalkLatency = 10;
     private int pageFaultLatency = 50;

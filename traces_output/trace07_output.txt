@@ -6,44 +6,44 @@ Instructions: 715736
 === Trace Replay Simulation Stats ===
 
 --- Execution ---
-Total Cycles              : 9490012
+Total Cycles              : 4703682
 Instructions Retired      : 715736
-IPC                       : 0.0754
-Stalls                    : 8774276
+IPC                       : 0.1522
+Stalls                    : 3987946
 
 --- Virtual Memory ---
-TLB Hits                  : 208880
-TLB Misses                : 148988
-TLB Hit Rate              : 0.5837
-Page Walks                : 148988
-Page Faults               : 59900
-Page Evictions            : 59836
-Dirty Evictions           : 57100
-Swap Outs (to disk)       : 57100
-Swap Ins  (from disk)     : 57069
-Translation Penalty Cycles: 4842748
+TLB Hits                  : 357772
+TLB Misses                : 96
+TLB Hit Rate              : 0.9997
+Page Walks                : 96
+Page Faults               : 96
+Page Evictions            : 0
+Dirty Evictions           : 0
+Swap Outs (to disk)       : 0
+Swap Ins  (from disk)     : 0
+Translation Penalty Cycles: 363628
 
 --- Cache Statistics ---
 L1I Hits                  : 0
 L1I Misses                : 0
 L1I Miss Rate             : 0.0000
 
-L1D Hits                  : 20982
-L1D Misses                : 336886
-L1D Miss Rate             : 0.9414
+L1D Hits                  : 61943
+L1D Misses                : 295925
+L1D Miss Rate             : 0.8269
 
-L2 Hits                   : 332790
-L2 Misses                 : 4096
-L2 Miss Rate              : 0.0122
+L2 Hits                   : 289781
+L2 Misses                 : 6144
+L2 Miss Rate              : 0.0208
 
 --- Configuration ---
 Virtual Memory    : 536870912 bytes
-Physical Memory   : 262144 bytes
+Physical Memory   : 16777216 bytes
 Page Size         : 4096 bytes
-DTLB Entries      : 16
+DTLB Entries      : 256
 TLB Hit Latency   : 1 cycles
 Page Walk Latency : 10 cycles
 Page Fault Latency: 50 cycles
 Replacement Policy: lru
 Forwarding        : enabled
-L1D Cache         : 32768B, 64B blocks, 4-way, 1-cycle, LRU
+L1D Cache         : 65536B, 64B blocks, 8-way, 1-cycle, LRU
