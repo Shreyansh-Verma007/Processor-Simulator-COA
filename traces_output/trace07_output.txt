@@ -1,0 +1,41 @@
+=== RISC-V Trace Replay Simulator ===
+Trace : phase3_traces/phase3_traces/trace07.trace
+Config: config.txt
+Instructions: 715736
+
+=== Trace Replay Simulation Stats ===
+
+--- Execution ---
+Total Cycles              : 23121820
+Instructions Retired      : 715736
+IPC                       : 0.0310
+Stalls                    : 22406084
+
+--- Virtual Memory ---
+TLB Hits                  : 208880
+TLB Misses                : 148988
+TLB Hit Rate              : 0.5837
+Page Walks                : 148988
+Page Faults               : 59900
+Page Evictions            : 59836
+Dirty Evictions           : 57100
+Swap Outs (to disk)       : 57100
+Swap Ins  (from disk)     : 57069
+Translation Penalty Cycles: 4842748
+
+--- Cache Statistics ---
+L1D Hits                  : 6736
+L1D Misses                : 351132
+L1D Miss Rate             : 0.9812
+
+--- Configuration ---
+Virtual Memory    : 536870912 bytes
+Physical Memory   : 262144 bytes
+Page Size         : 4096 bytes
+DTLB Entries      : 16
+TLB Hit Latency   : 1 cycles
+Page Walk Latency : 10 cycles
+Page Fault Latency: 50 cycles
+Replacement Policy: lru
+Forwarding        : enabled
+L1D Cache         : 4096B, 64B blocks, 1-way, 1-cycle, LRU
