@@ -1,6 +1,13 @@
 # 🚀 RISC-V Pipeline Simulator
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Java-17%2B-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java" />
+  <img src="https://img.shields.io/badge/Build-Passing-brightgreen?style=for-the-badge&logo=githubactions&logoColor=white" alt="Build" />
+  <img src="https://img.shields.io/badge/Dependencies-Zero-blue?style=for-the-badge" alt="Dependencies" />
+  <img src="https://img.shields.io/badge/License-MIT-purple?style=for-the-badge" alt="License" />
+</p>
+
+<p align="center">
   <strong>A cycle-accurate, modular 5-stage in-order RISC-V processor simulator</strong><br>
   with full cache hierarchy, virtual memory, hazard resolution, and trace replay<br><br>
   <code>Java</code> · <code>Zero Dependencies</code> · <code>3,500+ Lines</code> · <code>42 Source Files</code> · <code>9 Packages</code>
