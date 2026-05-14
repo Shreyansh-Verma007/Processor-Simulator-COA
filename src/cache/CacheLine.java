@@ -7,11 +7,15 @@ public class CacheLine {
     public boolean valid = false;
     public boolean dirty = false;
     public int tag = -1;
-    public int[] data; // block data in words
+    public final int[] data;
+
+    // Byte address of the block start when valid. Stored so eviction can produce
+    // the correct write-back address without reconstructing it from (tag, set).
+    public long blockAddress = 0;
 
     // For replacement policies
-    public long lastUsed = 0; // LRU: timestamp of last access
-    public long insertOrder = 0; // FIFO: timestamp of insertion
+    public long lastUsed = 0;
+    public long insertOrder = 0;
 
     public CacheLine(int blockSizeWords) {
         this.data = new int[blockSizeWords];
