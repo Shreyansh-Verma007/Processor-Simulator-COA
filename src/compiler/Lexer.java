@@ -14,17 +14,31 @@ public class Lexer {
                 line = line.trim();
                 if (line.isEmpty() || line.startsWith("#") || line.startsWith("//"))
                     continue;
-                if (line.contains("#")) {
-                    line = line.substring(0, line.indexOf("#")).trim();
-                }
-                if (line.contains("//")) {
-                    line = line.substring(0, line.indexOf("//")).trim();
-                }
+                line = stripComment(line);
                 if (line.isEmpty())
                     continue;
                 tokens.add(line);
             }
         }
         return tokens;
+    }
+
+    /** Strip comments (# or //) while respecting quoted strings. */
+    private String stripComment(String line) {
+        boolean inQuote = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"') {
+                inQuote = !inQuote;
+            } else if (!inQuote) {
+                if (c == '#') {
+                    return line.substring(0, i).trim();
+                }
+                if (c == '/' && i + 1 < line.length() && line.charAt(i + 1) == '/') {
+                    return line.substring(0, i).trim();
+                }
+            }
+        }
+        return line.trim();
     }
 }

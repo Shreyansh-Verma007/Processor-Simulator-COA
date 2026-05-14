@@ -12,10 +12,13 @@ public class TLB {
     private long clock = 0;
 
     // Statistics
-    private int hits = 0;
-    private int misses = 0;
+    private long hits = 0;
+    private long misses = 0;
 
     public TLB(int numEntries, String replacementPolicy) {
+        if (numEntries < 1) {
+            throw new IllegalArgumentException("TLB must have at least 1 entry, got: " + numEntries);
+        }
         this.numEntries = numEntries;
         this.useLRU = replacementPolicy.equalsIgnoreCase("lru");
         this.entries = new TLBEntry[numEntries];
@@ -77,6 +80,7 @@ public class TLB {
             TLBEntry e = entries[i];
             if (e.valid && e.virtualPageNumber == vpn) {
                 e.dirty = true;
+                e.lastUsed = clock++; // refresh LRU on store access
                 return;
             }
         }
@@ -142,11 +146,11 @@ public class TLB {
 
     // ── Statistics ────────────────────────────────────────────────────────
 
-    public int getHits() {
+    public long getHits() {
         return hits;
     }
 
-    public int getMisses() {
+    public long getMisses() {
         return misses;
     }
 }

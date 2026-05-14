@@ -183,8 +183,13 @@ public class CacheHierarchy {
                 for (int i = 0; i < blockSizeWords; i++) {
                     block[i] = memory.readWord(blockStart + i * 4);
                 }
-                // Install into L2 (no stats for the insert itself)
-                int[] l2Block = fetchMemoryBlock(l2, address);
+                // Install into L2 — build L2-sized block (may differ from L1 block size)
+                int l2BlockWords = l2.getBlockSizeWords();
+                int l2BlockStart = (address / l2.getConfig().blockSize) * l2.getConfig().blockSize;
+                int[] l2Block = new int[l2BlockWords];
+                for (int i = 0; i < l2BlockWords; i++) {
+                    l2Block[i] = memory.readWord(l2BlockStart + i * 4);
+                }
                 CacheLevel.EvictionResult l2Evict = l2.insert(address, l2Block);
                 if (l2Evict != null) {
                     writeBackToMemory(l2Evict);

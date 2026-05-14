@@ -84,6 +84,14 @@ public class Compiler {
                 }
             }
         }
+
+        // Guard: text segment must not overflow into data segment
+        if (textAddr > DATA_BASE) {
+            throw new RuntimeException(
+                "Text segment overflow: " + ((textAddr - TEXT_BASE) / 4)
+                + " instructions exceed data base at 0x" + Integer.toHexString(DATA_BASE));
+        }
+
         return symbols;
     }
 
@@ -105,9 +113,9 @@ public class Compiler {
             case ".space":
             case ".zero":
                 try {
-                    return Integer.parseInt(args.trim());
-                } catch (Exception e) {
-                    return 0;
+                    return parseSize(args.trim());
+                } catch (NumberFormatException e) {
+                    throw new RuntimeException(".space/.zero: invalid size '" + args + "'");
                 }
             case ".ascii":
                 return parseStringLiteral(args, false).length;
@@ -126,7 +134,12 @@ public class Compiler {
     private int countArgs(String args) {
         if (args == null || args.trim().isEmpty())
             return 0;
-        return args.split(",").length;
+        String[] tokens = args.split(",");
+        int count = 0;
+        for (String t : tokens) {
+            if (!t.trim().isEmpty()) count++;
+        }
+        return count;
     }
 
     // ── Pass 2: data items ────────────────────────────────────────────────
@@ -210,10 +223,10 @@ public class Compiler {
             case ".space":
             case ".zero": {
                 try {
-                    int n = Integer.parseInt(args.trim());
+                    int n = parseSize(args.trim());
                     return new byte[n]; // zero-initialized
-                } catch (Exception e) {
-                    return new byte[0];
+                } catch (NumberFormatException e) {
+                    throw new RuntimeException(".space/.zero: invalid size '" + args + "'");
                 }
             }
             case ".ascii":
@@ -228,6 +241,15 @@ public class Compiler {
             default:
                 return new byte[0];
         }
+    }
+
+    /** Parse a numeric size value, supporting both decimal and hex (0x prefix). */
+    private int parseSize(String s) {
+        s = s.trim();
+        if (s.startsWith("0x") || s.startsWith("0X")) {
+            return Integer.parseUnsignedInt(s.substring(2), 16);
+        }
+        return Integer.parseInt(s);
     }
 
     private int resolveInt(String s, Map<String, Integer> symbols) {
@@ -251,10 +273,10 @@ public class Compiler {
      */
     private byte[] parseStringLiteral(String args, boolean nullTerminate) {
         args = args.trim();
-        if (args.startsWith("\""))
-            args = args.substring(1);
-        if (args.endsWith("\""))
-            args = args.substring(0, args.length() - 1);
+        if (!args.startsWith("\"") || !args.endsWith("\"") || args.length() < 2) {
+            throw new RuntimeException("Unterminated or malformed string literal: " + args);
+        }
+        args = args.substring(1, args.length() - 1);
 
         List<Byte> bytes = new ArrayList<>();
         for (int i = 0; i < args.length(); i++) {
