@@ -32,22 +32,22 @@
 
 ```
                     ┌──────────────────────────────────────────────────┐
-  input.asm ───▶    │  Lexer → Parser → Compiler                      │
+  input.asm ───▶    │  Lexer → Parser → Compiler                       │
                     │         │                                        │
                     │         ▼                                        │
-                    │  ┌─────┬─────┬─────┬─────┬─────┐                │
-                    │  │ IF  │ ID  │ EX  │ MEM │ WB  │  Pipeline      │
-                    │  └──┬──┴──┬──┴──┬──┴──┬──┴──┬──┘                │
+                    │  ┌─────┬─────┬─────┬─────┬─────┐                 │
+                    │  │ IF  │ ID  │ EX  │ MEM │ WB  │  Pipeline       │
+                    │  └──┬──┴──┬──┴──┬──┴──┬──┴──┬──┘                 │
                     │     │     │     │     │     │                    │
                     │     ▼     │     │     ▼     ▼                    │
-                    │   L1I    HazardUnit  L1D   RegisterFile         │
+                    │   L1I    HazardUnit  L1D   RegisterFile          │
                     │     │   ForwardingUnit │                         │
                     │     └────────┬─────────┘                         │
-                    │              ▼                                    │
-                    │         L2 (Unified)                              │
-                    │              │                                    │
-                    │              ▼                                    │
-                    │        Main Memory                                │
+                    │              ▼                                   │
+                    │         L2 (Unified)                             │
+                    │              │                                   │
+                    │              ▼                                   │
+                    │        Main Memory                               │
                     └──────────────────────────────────────────────────┘
 ```
 
@@ -56,16 +56,16 @@
 ```
                     ┌──────────────────────────────────────────────────┐
   trace.file ───▶   │  TraceParser → TraceSimulator                    │
-                    │                    │                              │
+                    │                    │                             │
                     │         ┌──────────┼──────────┐                  │
                     │         ▼          ▼          ▼                  │
                     │       TLB     RegisterFile  CacheHierarchy       │
                     │         │                   (L1D only)           │
                     │         ▼                      │                 │
-                    │    Page Table                   │                 │
-                    │    (flat, single-level)         │                 │
-                    │         │                       │                 │
-                    │         ▼                       ▼                 │
+                    │    Page Table                  │                 │
+                    │    (flat, single-level)        │                 │
+                    │         │                      │                 │
+                    │         ▼                      ▼                 │
                     │   Frame Allocator ──────▶ Physical Memory        │
                     │   (LRU/FIFO eviction)                            │
                     └──────────────────────────────────────────────────┘
@@ -229,9 +229,9 @@
 ║  Stalls              : 12,289                ║
 ║  Branch Flushes      : 242                   ║
 ╠══════════════════════════════════════════════╣
-║  L1I : 2,758 hits, 2 misses  (MR: 0.001)    ║
-║  L1D : 575 hits, 2 misses    (MR: 0.003)    ║
-║  L2  : 0 hits, 4 misses      (MR: 1.000)    ║
+║  L1I : 2,758 hits, 2 misses  (MR: 0.001)     ║
+║  L1D : 575 hits, 2 misses    (MR: 0.003)     ║
+║  L2  : 0 hits, 4 misses      (MR: 1.000)     ║
 ╚══════════════════════════════════════════════╝
 ```
 
