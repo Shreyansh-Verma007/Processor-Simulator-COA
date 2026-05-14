@@ -46,10 +46,10 @@ import cache.CacheLevel;
 ### Pipeline Metrics
 
 ```java
-public int cycles              = 0;
-public int stalls              = 0;
-public int branchFlushes       = 0;
-public int instructionsRetired = 0;
+public long cycles              = 0;
+public long stalls              = 0;
+public long branchFlushes       = 0;
+public long instructionsRetired = 0;
 ```
 
 All pipeline metric fields are `public` for direct access from pipeline components.
@@ -66,9 +66,9 @@ All pipeline metric fields are `public` for direct access from pipeline componen
 ### Cache Metrics (Phase 2)
 
 ```java
-public int l1iHits   = 0, l1iMisses = 0;
-public int l1dHits   = 0, l1dMisses = 0;
-public int l2Hits    = 0, l2Misses  = 0;
+public long l1iHits   = 0, l1iMisses = 0;
+public long l1dHits   = 0, l1dMisses = 0;
+public long l2Hits    = 0, l2Misses  = 0;
 ```
 
 Six counters — two (hits, misses) for each of the three cache levels. They are **zero by default** and only populated at the very end of simulation by `collectCacheStats()`.
@@ -84,12 +84,12 @@ Six counters — two (hits, misses) for each of the three cache levels. They are
 ### Virtual Memory Metrics (Phase 3)
 
 ```java
-public int tlbHits    = 0;
-public int tlbMisses  = 0;
-public int pageWalks  = 0;
-public int pageFaults = 0;
-public int pageEvictions  = 0;
-public int dirtyEvictions = 0;
+public long tlbHits    = 0;
+public long tlbMisses  = 0;
+public long pageWalks  = 0;
+public long pageFaults = 0;
+public long pageEvictions  = 0;
+public long dirtyEvictions = 0;
 public long totalTranslationPenaltyCycles = 0;
 ```
 
@@ -127,8 +127,8 @@ Computes **Instructions Per Cycle**. Guards against division-by-zero when cycles
 ## `getMissRate()`
 
 ```java
-public double getMissRate(int hits, int misses) {
-    int total = hits + misses;
+public double getMissRate(long hits, long misses) {
+    long total = hits + misses;
     return total == 0 ? 0.0 : (double) misses / total;
 }
 ```

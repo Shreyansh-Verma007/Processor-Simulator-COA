@@ -39,11 +39,21 @@ page_fault_latency = 50
 replacement_policy = lru
 
 [cache]
-L1D_SIZE = 4096
+L1I_SIZE = 32768
+L1I_BLOCK_SIZE = 64
+L1I_ASSOCIATIVITY = 4
+L1I_LATENCY = 1
+
+L1D_SIZE = 32768
 L1D_BLOCK_SIZE = 64
-L1D_ASSOCIATIVITY = 1
+L1D_ASSOCIATIVITY = 4
 L1D_LATENCY = 1
-MEMORY_LATENCY = 200
+
+L2_SIZE = 262144
+L2_BLOCK_SIZE = 64
+L2_ASSOCIATIVITY = 8
+L2_LATENCY = 10
+MEMORY_LATENCY = 50
 ```
 
 ### Flat Format (Phase 2 compatible)
@@ -63,14 +73,14 @@ Both formats are automatically detected by `loadCacheConfig()`.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `virtual_size_bytes` | 65,536 | Total virtual address space in bytes |
-| `physical_size_bytes` | 16,384 | Total physical memory in bytes |
+| `virtual_size_bytes` | 536,870,912 | Total virtual address space in bytes (512 MB) |
+| `physical_size_bytes` | 262,144 | Total physical memory in bytes (256 KB) |
 | `page_size_bytes` | 4,096 | Page size in bytes |
-| `dtlb_entries` | 4 | Number of fully-associative TLB entries |
+| `dtlb_entries` | 16 | Number of fully-associative TLB entries |
 | `tlb_hit_latency` | 1 | Cycles for TLB hit |
 | `page_walk_latency` | 10 | Extra cycles for page table walk |
 | `page_fault_latency` | 50 | Extra cycles for page fault |
-| `replacement_policy` | "fifo" | Replacement policy: "lru" or "fifo" |
+| `replacement_policy` | "lru" | Replacement policy: "lru" or "fifo" |
 
 ---
 
