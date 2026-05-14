@@ -10,62 +10,11 @@
 
 `Config` is the **centralized configuration class** for the simulator. It manages instruction latencies, forwarding settings, cache parameters, and virtual memory settings.
 
-**Phase 3 update:** `Config` now supports **INI-style sectioned configuration files** in addition to the original flat `KEY=VALUE` format. New sections include `[pipeline]`, `[latencies]`, `[memory]`, `[vm]`, and `[cache]`.
+**Phase 3 update:** `Config` now hardcodes all configuration parameters directly inside the class.
 
 ---
 
-## Configuration Formats
 
-### INI-Style (Phase 3)
-
-```ini
-[pipeline]
-forwarding_enabled = true
-
-[latencies]
-ADD = 1
-MUL = 3
-
-[memory]
-virtual_size_bytes = 536870912
-physical_size_bytes = 262144
-page_size_bytes = 4096
-
-[vm]
-dtlb_entries = 16
-tlb_hit_latency = 1
-page_walk_latency = 10
-page_fault_latency = 50
-replacement_policy = lru
-
-[cache]
-L1I_SIZE = 32768
-L1I_BLOCK_SIZE = 64
-L1I_ASSOCIATIVITY = 4
-L1I_LATENCY = 1
-
-L1D_SIZE = 32768
-L1D_BLOCK_SIZE = 64
-L1D_ASSOCIATIVITY = 4
-L1D_LATENCY = 1
-
-L2_SIZE = 262144
-L2_BLOCK_SIZE = 64
-L2_ASSOCIATIVITY = 8
-L2_LATENCY = 10
-MEMORY_LATENCY = 50
-```
-
-### Flat Format (Phase 2 compatible)
-
-```properties
-L1I_SIZE = 1024
-L1I_BLOCK_SIZE = 64
-# ... etc
-FORWARDING_ENABLED = true
-```
-
-Both formats are automatically detected by `loadCacheConfig()`.
 
 ---
 
@@ -88,7 +37,7 @@ Both formats are automatically detected by `loadCacheConfig()`.
 
 | Method | Return | Purpose |
 |--------|--------|---------|
-| `loadCacheConfig(path)` | `void` | Load config from file (auto-detects INI vs flat) |
+
 | `getLatency(opcode)` | `int` | Get instruction latency |
 | `isForwardingEnabled()` | `boolean` | Forwarding toggle |
 | `getL1I()`, `getL1D()`, `getL2()` | `CacheConfig` | Cache level configs |

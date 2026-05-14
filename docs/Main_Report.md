@@ -13,16 +13,16 @@
 **Execution Modes:**
 - **Pipeline Mode** (default): Compiles and runs a `.asm` file through the 5-stage pipeline (Phase 1/2)
 - **Single Trace Mode** (`--trace`): Replays a single `.trace` file through the trace simulator (Phase 3)
-- **Batch Trace Mode** (`--trace-all`): Replays all `.trace` files in a directory, writing consolidated results to `all_results.txt`
+- **Batch Trace Mode** (`--trace-all`): Replays all `.trace` files in a directory, writing individual results to the `traces_output/` directory
 
 ---
 
 ## Usage
 
 ```
-Pipeline mode : java Main [input.asm] [config.txt]
-Single trace  : java Main --trace <trace_file> <config.txt>
-Batch traces  : java Main --trace-all <trace_dir> <config.txt>
+Pipeline mode : java Main [input.asm]
+Single trace  : java Main --trace <trace_file>
+Batch traces  : java Main --trace-all <trace_dir>
 ```
 
 ---
@@ -33,8 +33,8 @@ Batch traces  : java Main --trace-all <trace_dir> <config.txt>
 |------|------------|----------|
 | Pipeline | `console.txt` | Cycle-by-cycle pipeline output |
 | Pipeline | `output.txt` | Final stats (cycles, stalls, IPC, cache) |
-| Single Trace | `output.txt` | Trace replay stats (VM + cache + execution) |
-| Batch Trace | `all_results.txt` | Consolidated stats for all trace files |
+| Single Trace | `traces_output/*` | Trace replay stats (VM + cache + execution) |
+| Batch Trace | `traces_output/*` | Individual stats for all trace files |
 
 ---
 
@@ -51,7 +51,7 @@ Batch traces  : java Main --trace-all <trace_dir> <config.txt>
 
 ## Key Design Decisions
 
-- **Unified Config:** All modes share the same `Config` class and INI-style `config.txt`.
+- **Unified Config:** All modes share the same `Config` class.
 - **StatsPrinter delegation:** All formatted output goes through `StatsPrinter` — no inline print logic.
 - **Pipeline output redirect:** `System.out` is redirected to `console.txt` in pipeline mode to separate cycle logs from stats.
 

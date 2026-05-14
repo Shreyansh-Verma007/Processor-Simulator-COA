@@ -28,7 +28,7 @@
 
 **Key characteristics:**
 - Fully-associative (all entries checked on every lookup)
-- Configurable number of entries (specified via `vm_config.txt`)
+- Configurable number of entries (specified via `Config.java`)
 - Supports both **LRU** and **FIFO** replacement policies
 - Tracks hits and misses for statistics
 

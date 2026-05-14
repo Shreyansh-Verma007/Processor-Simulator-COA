@@ -190,7 +190,7 @@
 **Members:** Suhail Sahib, Shreyansh Verma
 
 #### Decisions:
-- Re-architected configuration management, moving from disparate config files to a single, unified INI-style `config.txt` shared by both pipeline and trace modes.
+- Re-architected configuration management, moving from disparate config files to a single, unified `Config.java` shared by both pipeline and trace modes.
 - Refactored console output and stats collection into `StatsPrinter` for clean, consistent reporting.
 - Executed the simulator against all 10 provided trace files.
 - Analyzed final performance results, updated documentation extensively, and finalized the project codebase against all Phase 3 specifications.

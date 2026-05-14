@@ -429,7 +429,7 @@ java -cp out Main --trace-all phase3_traces             # batch (all .trace file
 |------|----------|
 | `console.txt` | Cycle-by-cycle pipeline execution log |
 | `output.txt` | Final simulation statistics |
-| `all_results.txt` | Consolidated batch trace results |
+| `traces_output/*` | Individual batch trace results |
 | `swap.txt` | Swap space dump — pages still resident in swap after simulation |
 
 ---

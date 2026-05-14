@@ -16,9 +16,9 @@ import java.util.List;
 
 // Entry point for the RISC-V pipeline simulator.
 // Usage:
-//   Pipeline mode : java Main [input.asm] [config.txt]
-//   Single trace  : java Main --trace <trace_file> <config.txt>
-//   Batch traces  : java Main --trace-all <trace_dir> <config.txt>
+//   Pipeline mode : java Main [input.asm]
+//   Single trace  : java Main --trace <trace_file>
+//   Batch traces  : java Main --trace-all <trace_dir>
 public class Main {
     public static void main(String[] args) throws Exception {
         if (args.length >= 1 && args[0].equals("--trace")) {
@@ -33,56 +33,62 @@ public class Main {
     // ── Single trace replay ──────────────────────────────────────────────
 
     /**
-     * Usage: java Main --trace <trace_file> [config.txt]
+     * Usage: java Main --trace <trace_file>
      */
     private static void runTraceMode(String[] args) throws Exception {
         if (args.length < 2) {
-            System.err.println("Usage: java Main --trace <trace_file> [config.txt]");
+            System.err.println("Usage: java Main --trace <trace_file>");
             System.exit(1);
         }
 
         String tracePath = args[1];
-        String configPath = (args.length > 2) ? args[2] : "default (Config.java)";
+        String configPath = "default (Config.java)";
 
         Config cfg = new Config();
-        if (args.length > 2) {
-            cfg.loadConfig(args[2]);
-        }
 
         List<TraceInstruction> instructions = TraceParser.parse(tracePath);
         TraceSimulator simulator = new TraceSimulator(cfg);
         simulator.run(instructions);
 
-        // Write results to output.txt
-        try (PrintStream out = new PrintStream(new FileOutputStream("output.txt"))) {
+        // Write results to traces_output/<trace_name>_output.txt
+        File outDir = new File("traces_output");
+        if (!outDir.exists()) {
+            outDir.mkdirs();
+        }
+
+        File traceFile = new File(tracePath);
+        String baseName = traceFile.getName();
+        if (baseName.endsWith(".trace")) {
+            baseName = baseName.substring(0, baseName.length() - 6);
+        }
+        File outFile = new File(outDir, baseName + "_output.txt");
+
+        try (PrintStream out = new PrintStream(new FileOutputStream(outFile))) {
             StatsPrinter.printTraceHeader(out, tracePath, configPath, instructions.size());
             simulator.printStats(out);
             StatsPrinter.printConfigSection(out, cfg);
         }
 
-        System.err.println("Trace replay complete. Results written to output.txt");
+        System.err.println("Trace replay complete. Results written to " + outFile.getPath());
     }
 
     // ── Batch trace replay (all traces → one file) ───────────────────────
 
     /**
-     * Usage: java Main --trace-all <trace_dir> [config.txt]
-     * Runs every *.trace file in the directory and writes all results
-     * into a single all_results.txt.
+     * Usage: java Main --trace-all <trace_dir>
+     * Runs every *.trace file in the directory and writes individual results
+     * into the traces_output/ directory.
      */
     private static void runBatchTraceMode(String[] args) throws Exception {
         if (args.length < 2) {
-            System.err.println("Usage: java Main --trace-all <trace_dir> [config.txt]");
+            System.err.println("Usage: java Main --trace-all <trace_dir>");
             System.exit(1);
         }
 
         String traceDir = args[1];
-        String configPath = (args.length > 2) ? args[2] : "default (Config.java)";
+        String configPath = "default (Config.java)";
 
         Config cfg = new Config();
-        if (args.length > 2) {
-            cfg.loadConfig(args[2]);
-        }
 
         // Find all .trace files, sorted by name
         File dir = new File(traceDir);
@@ -97,50 +103,52 @@ public class Main {
         }
         Arrays.sort(traceFiles);
 
-        // Run all traces, write consolidated output
-        try (PrintStream out = new PrintStream(new FileOutputStream("all_results.txt"))) {
-            out.println("=== Batch Trace Replay Results ===");
-            out.println("Config: " + configPath);
-            out.println("Traces: " + traceFiles.length + " files from " + traceDir);
-            StatsPrinter.printConfigSection(out, cfg);
-            out.println();
-
-            for (int i = 0; i < traceFiles.length; i++) {
-                File traceFile = traceFiles[i];
-                System.err.println("[" + (i + 1) + "/" + traceFiles.length + "] " + traceFile.getName());
-
-                // Config is stateless after load — reuse the same instance
-                List<TraceInstruction> instructions = TraceParser.parse(traceFile.getPath());
-                TraceSimulator simulator = new TraceSimulator(cfg);
-                simulator.run(instructions);
-
-                out.println("═══════════════════════════════════════════════════");
-                out.println("  Trace " + (i + 1) + ": " + traceFile.getName());
-                out.println("  Instructions: " + instructions.size());
-                out.println("═══════════════════════════════════════════════════");
-                simulator.printStats(out);
-                out.println();
-            }
-
-            out.println("=== End of Batch Results ===");
+        // Create traces_output directory
+        File outDir = new File("traces_output");
+        if (!outDir.exists()) {
+            outDir.mkdirs();
         }
 
-        System.err.println("Batch complete. All results written to all_results.txt");
+        System.err.println("=== Batch Trace Replay ===");
+        System.err.println("Config: " + configPath);
+        System.err.println("Traces: " + traceFiles.length + " files from " + traceDir);
+        System.err.println();
+
+        for (int i = 0; i < traceFiles.length; i++) {
+            File traceFile = traceFiles[i];
+            System.err.println("[" + (i + 1) + "/" + traceFiles.length + "] Processing " + traceFile.getName() + "...");
+
+            // Config is stateless after load — reuse the same instance
+            List<TraceInstruction> instructions = TraceParser.parse(traceFile.getPath());
+            TraceSimulator simulator = new TraceSimulator(cfg);
+            simulator.run(instructions);
+
+            // e.g., trace01.trace -> trace01_output.txt
+            String baseName = traceFile.getName();
+            if (baseName.endsWith(".trace")) {
+                baseName = baseName.substring(0, baseName.length() - 6);
+            }
+            File outFile = new File(outDir, baseName + "_output.txt");
+
+            try (PrintStream out = new PrintStream(new FileOutputStream(outFile))) {
+                StatsPrinter.printTraceHeader(out, traceFile.getPath(), configPath, instructions.size());
+                simulator.printStats(out);
+                StatsPrinter.printConfigSection(out, cfg);
+            }
+        }
+
+        System.err.println("Batch complete. Results written to traces_output/ directory.");
     }
 
     // ── Pipeline mode (Phase 1/2 backward compatible) ────────────────────
 
     /**
-     * Usage: java Main [input.asm] [config.txt]
+     * Usage: java Main [input.asm]
      */
     private static void runPipelineMode(String[] args) throws Exception {
         String asmPath = (args.length > 0) ? args[0] : "input.asm";
-        String cfgPath = (args.length > 1) ? args[1] : null;
 
         Config cfg = new Config();
-        if (cfgPath != null) {
-            cfg.loadConfig(cfgPath);
-        }
 
         Processor processor = new Processor(cfg);
         // Redirect pipeline output to console.txt
@@ -149,9 +157,6 @@ public class Main {
 
             System.out.println("=== RISC-V Pipeline Simulator ===");
             System.out.println("Loading: " + asmPath);
-            if (cfgPath != null) {
-                System.out.println("Config: " + cfgPath);
-            }
 
             CompilationResult result = new Compiler().compile(asmPath);
             System.out.println("Compiled " + result.getInstructions().size() + " instructions.\n");

@@ -1,15 +1,15 @@
 === RISC-V Trace Replay Simulator ===
-Trace : phase3_traces/phase3_traces/trace03.trace
-Config: config.txt
+Trace : phase3_traces\trace03.trace
+Config: default (Config.java)
 Instructions: 715752
 
 === Trace Replay Simulation Stats ===
 
 --- Execution ---
-Total Cycles              : 22547038
+Total Cycles              : 8644274
 Instructions Retired      : 715752
-IPC                       : 0.0317
-Stalls                    : 21831286
+IPC                       : 0.0828
+Stalls                    : 7928522
 
 --- Virtual Memory ---
 TLB Hits                  : 0
@@ -24,9 +24,17 @@ Swap Ins  (from disk)     : 0
 Translation Penalty Cycles: 3937486
 
 --- Cache Statistics ---
+L1I Hits                  : 0
+L1I Misses                : 0
+L1I Miss Rate             : 0.0000
+
 L1D Hits                  : 0
 L1D Misses                : 357876
 L1D Miss Rate             : 1.0000
+
+L2 Hits                   : 356788
+L2 Misses                 : 1088
+L2 Miss Rate              : 0.0030
 
 --- Configuration ---
 Virtual Memory    : 536870912 bytes
@@ -38,4 +46,4 @@ Page Walk Latency : 10 cycles
 Page Fault Latency: 50 cycles
 Replacement Policy: lru
 Forwarding        : enabled
-L1D Cache         : 4096B, 64B blocks, 1-way, 1-cycle, LRU
+L1D Cache         : 32768B, 64B blocks, 4-way, 1-cycle, LRU
