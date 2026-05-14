@@ -106,7 +106,7 @@ public class Config {
     // ── Cache configuration ──────────────────────────────────────────────
 
     public boolean hasCacheConfig() {
-        return l1i != null && l1d != null && l2 != null;
+        return l1i != null || l1d != null;
     }
 
     public CacheConfig getL1I() {
