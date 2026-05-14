@@ -33,19 +33,21 @@ public class Main {
     // ── Single trace replay ──────────────────────────────────────────────
 
     /**
-     * Usage: java Main --trace <trace_file> <config.txt>
+     * Usage: java Main --trace <trace_file> [config.txt]
      */
     private static void runTraceMode(String[] args) throws Exception {
-        if (args.length < 3) {
-            System.err.println("Usage: java Main --trace <trace_file> <config.txt>");
+        if (args.length < 2) {
+            System.err.println("Usage: java Main --trace <trace_file> [config.txt]");
             System.exit(1);
         }
 
         String tracePath = args[1];
-        String configPath = args[2];
+        String configPath = (args.length > 2) ? args[2] : "default (Config.java)";
 
         Config cfg = new Config();
-        cfg.loadConfig(configPath);
+        if (args.length > 2) {
+            cfg.loadConfig(args[2]);
+        }
 
         List<TraceInstruction> instructions = TraceParser.parse(tracePath);
         TraceSimulator simulator = new TraceSimulator(cfg);
@@ -64,21 +66,23 @@ public class Main {
     // ── Batch trace replay (all traces → one file) ───────────────────────
 
     /**
-     * Usage: java Main --trace-all <trace_dir> <config.txt>
+     * Usage: java Main --trace-all <trace_dir> [config.txt]
      * Runs every *.trace file in the directory and writes all results
      * into a single all_results.txt.
      */
     private static void runBatchTraceMode(String[] args) throws Exception {
-        if (args.length < 3) {
-            System.err.println("Usage: java Main --trace-all <trace_dir> <config.txt>");
+        if (args.length < 2) {
+            System.err.println("Usage: java Main --trace-all <trace_dir> [config.txt]");
             System.exit(1);
         }
 
         String traceDir = args[1];
-        String configPath = args[2];
+        String configPath = (args.length > 2) ? args[2] : "default (Config.java)";
 
         Config cfg = new Config();
-        cfg.loadConfig(configPath);
+        if (args.length > 2) {
+            cfg.loadConfig(args[2]);
+        }
 
         // Find all .trace files, sorted by name
         File dir = new File(traceDir);

@@ -15,22 +15,22 @@ public class Config {
     private boolean forwardingEnabled;
 
     // ── Default cache parameters (single source of truth) ────────────────
-    private static final int DEF_L1I_SIZE = 1024;
+    private static final int DEF_L1I_SIZE = 4096;
     private static final int DEF_L1I_BLOCK = 64;
-    private static final int DEF_L1I_ASSOC = 2;
-    private static final int DEF_L1I_LATENCY = 5;
+    private static final int DEF_L1I_ASSOC = 1;
+    private static final int DEF_L1I_LATENCY = 1;
 
-    private static final int DEF_L1D_SIZE = 1024;
+    private static final int DEF_L1D_SIZE = 4096;
     private static final int DEF_L1D_BLOCK = 64;
-    private static final int DEF_L1D_ASSOC = 2;
-    private static final int DEF_L1D_LATENCY = 5;
+    private static final int DEF_L1D_ASSOC = 1;
+    private static final int DEF_L1D_LATENCY = 1;
 
     private static final int DEF_L2_SIZE = 8192;
     private static final int DEF_L2_BLOCK = 64;
     private static final int DEF_L2_ASSOC = 4;
     private static final int DEF_L2_LATENCY = 50;
 
-    private static final int DEF_MEMORY_LATENCY = 200;
+    private static final int DEF_MEMORY_LATENCY = 50;
     private static final ReplacementPolicy DEF_POLICY = ReplacementPolicy.LRU;
     private static final boolean DEF_FORWARDING = true;
 
@@ -41,14 +41,14 @@ public class Config {
     private int mainMemoryLatency;
 
     // ── Virtual Memory parameters ────────────────────────────────────────
-    private int virtualSizeBytes = 65536;       // 64 KB default
-    private int physicalSizeBytes = 16384;      // 16 KB default
+    private int virtualSizeBytes = 536870912;   // 512 MB default
+    private int physicalSizeBytes = 262144;     // 256 KB default
     private int pageSizeBytes = 4096;           // 4 KB default
-    private int dtlbEntries = 4;
+    private int dtlbEntries = 16;
     private int tlbHitLatency = 1;
     private int pageWalkLatency = 10;
     private int pageFaultLatency = 50;
-    private String vmReplacementPolicy = "fifo";
+    private String vmReplacementPolicy = "lru";
 
     public Config() {
         this.latencies = new HashMap<>();
