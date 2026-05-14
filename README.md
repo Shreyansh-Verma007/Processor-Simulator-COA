@@ -419,8 +419,8 @@ java -cp out Main input.asm          # runs pipeline with default cache/VM confi
 ### Trace Replay
 
 ```bash
-java -cp out Main --trace phase3_traces/phase3_traces/trace01.trace   # single trace
-java -cp out Main --trace-all phase3_traces/phase3_traces             # batch (all .trace files)
+java -cp out Main --trace phase3_traces/trace01.trace   # single trace
+java -cp out Main --trace-all phase3_traces             # batch (all .trace files)
 ```
 
 ### Output Files
