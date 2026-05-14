@@ -194,3 +194,14 @@
 - Refactored console output and stats collection into `StatsPrinter` for clean, consistent reporting.
 - Executed the simulator against all 10 provided trace files.
 - Analyzed final performance results, updated documentation extensively, and finalized the project codebase against all Phase 3 specifications.
+
+---
+
+### Date: 13th May 2026
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Added the missing `TraceDataCache` class to resolve a compilation issue in the trace simulation pipeline.
+- Implemented swap space support in the `VirtualMemoryUnit` to handle page evictions when physical memory is full.
+- Plumbed swap metrics (swap-ins, swap-outs) through `Stats`, `TraceSimulator`, and `StatsPrinter` for accurate reporting.
+- Updated README documentation to reflect swap space and `TraceDataCache` additions.
