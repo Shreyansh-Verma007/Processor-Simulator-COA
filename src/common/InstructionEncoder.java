@@ -35,14 +35,16 @@ public class InstructionEncoder {
 
         Opcode[] opcodes = Opcode.values();
         if (opcodeIdx >= opcodes.length) {
-            return null; // invalid opcode — treat as NOP
+            throw new IllegalArgumentException(
+                "Invalid opcode index in encoded word: " + opcodeIdx);
         }
 
         Opcode op = opcodes[opcodeIdx];
 
-        // Sign-extend immediate only for instructions that use PC-relative offsets
-        // (branches and ADDI). Load/store/LI use unsigned addresses/offsets (0–4095).
-        if (op.isBranch() || op == Opcode.ADDI || op == Opcode.JAL) {
+        // Sign-extend 12-bit immediate for instructions that use signed offsets:
+        // branches (PC-relative), ADDI, JAL, and load/store (base+offset addressing)
+        if (op.isBranch() || op == Opcode.ADDI || op == Opcode.JAL
+                || op.isLoad() || op.isStore()) {
             if ((imm & 0x800) != 0) {
                 imm |= 0xFFFFF000;
             }

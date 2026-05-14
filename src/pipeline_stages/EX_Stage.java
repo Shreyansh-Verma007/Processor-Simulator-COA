@@ -120,11 +120,13 @@ public class EX_Stage {
             case MUL:
                 return a * b;
             case DIV:
-                return (b != 0) ? a / b : -1;
+                if (b == 0) return -1; // RISC-V: div by zero → -1
+                if (a == Integer.MIN_VALUE && b == -1) return Integer.MIN_VALUE; // overflow guard
+                return a / b;
             case SLL:
-                return a << b;
+                return a << (b & 0x1F); // RISC-V: only low 5 bits of shift amount
             case SRL:
-                return a >>> b;
+                return a >>> (b & 0x1F);
             case XOR:
                 return a ^ b;
             case OR:

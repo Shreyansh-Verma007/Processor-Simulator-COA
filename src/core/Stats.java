@@ -4,33 +4,33 @@ import cache.CacheLevel;
 
 // Simulation performance metrics — shared between pipeline and trace modes.
 public class Stats {
-    public int cycles = 0;
-    public int stalls = 0;
-    public int branchFlushes = 0;
-    public int instructionsRetired = 0;
+    public long cycles = 0;
+    public long stalls = 0;
+    public long branchFlushes = 0;
+    public long instructionsRetired = 0;
 
     // Cache stats (populated at end of simulation from CacheHierarchy)
-    public int l1iHits = 0, l1iMisses = 0;
-    public int l1dHits = 0, l1dMisses = 0;
-    public int l2Hits = 0, l2Misses = 0;
+    public long l1iHits = 0, l1iMisses = 0;
+    public long l1dHits = 0, l1dMisses = 0;
+    public long l2Hits = 0, l2Misses = 0;
 
     // Virtual Memory stats (populated by TraceSimulator)
-    public int tlbHits = 0;
-    public int tlbMisses = 0;
-    public int pageWalks = 0;
-    public int pageFaults = 0;
-    public int pageEvictions = 0;
-    public int dirtyEvictions = 0;
-    public int swapOuts = 0;
-    public int swapIns = 0;
+    public long tlbHits = 0;
+    public long tlbMisses = 0;
+    public long pageWalks = 0;
+    public long pageFaults = 0;
+    public long pageEvictions = 0;
+    public long dirtyEvictions = 0;
+    public long swapOuts = 0;
+    public long swapIns = 0;
     public long totalTranslationPenaltyCycles = 0;
 
     public double getIPC() {
         return cycles == 0 ? 0 : (double) instructionsRetired / cycles;
     }
 
-    public double getMissRate(int hits, int misses) {
-        int total = hits + misses;
+    public double getMissRate(long hits, long misses) {
+        long total = hits + misses;
         return total == 0 ? 0.0 : (double) misses / total;
     }
 

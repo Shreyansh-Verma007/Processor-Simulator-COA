@@ -34,14 +34,14 @@ public class VirtualMemoryUnit {
 
     // Swap space: VPN → saved page data (word array)
     private final Map<Integer, int[]> swapSpace = new HashMap<>();
-    private int swapOuts = 0;
-    private int swapIns = 0;
+    private long swapOuts = 0;
+    private long swapIns = 0;
 
     // Statistics
-    private int pageWalks = 0;
-    private int pageFaults = 0;
-    private int pageEvictions = 0;
-    private int dirtyEvictions = 0;
+    private long pageWalks = 0;
+    private long pageFaults = 0;
+    private long pageEvictions = 0;
+    private long dirtyEvictions = 0;
     private long totalTranslationPenalty = 0;
 
     public VirtualMemoryUnit(Config cfg, Memory physicalMemory) {
@@ -237,13 +237,13 @@ public class VirtualMemoryUnit {
 
     // ── Statistics accessors ─────────────────────────────────────────────
 
-    public int getTlbHits()                  { return tlb.getHits(); }
-    public int getTlbMisses()                { return tlb.getMisses(); }
-    public int getPageWalks()                { return pageWalks; }
-    public int getPageFaults()               { return pageFaults; }
-    public int getPageEvictions()             { return pageEvictions; }
-    public int getDirtyEvictions()            { return dirtyEvictions; }
+    public long getTlbHits()                  { return tlb.getHits(); }
+    public long getTlbMisses()                { return tlb.getMisses(); }
+    public long getPageWalks()                { return pageWalks; }
+    public long getPageFaults()               { return pageFaults; }
+    public long getPageEvictions()             { return pageEvictions; }
+    public long getDirtyEvictions()            { return dirtyEvictions; }
     public long getTotalTranslationPenalty()  { return totalTranslationPenalty; }
-    public int getSwapOuts()                  { return swapOuts; }
-    public int getSwapIns()                   { return swapIns; }
+    public long getSwapOuts()                  { return swapOuts; }
+    public long getSwapIns()                   { return swapIns; }
 }

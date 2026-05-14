@@ -17,6 +17,10 @@ public class Memory {
     }
 
     public Memory(int sizeBytes) {
+        if (sizeBytes <= 0 || sizeBytes % 4 != 0) {
+            throw new IllegalArgumentException(
+                "Memory size must be positive and word-aligned (multiple of 4), got: " + sizeBytes);
+        }
         this.numWords = sizeBytes / 4;
         this.data = new int[numWords];
     }

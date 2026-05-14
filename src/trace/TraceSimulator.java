@@ -119,7 +119,8 @@ public class TraceSimulator {
                 registers[instr.rd] = ar.data;
             }
         } else {
-            cycles += 1; // default 1 cycle if no cache
+            // No cache — charge main memory latency directly
+            cycles += cfg.getMainMemoryLatency();
             if (instr.rd != 0) {
                 registers[instr.rd] = physicalMemory.readWord(physAddr);
             }
@@ -145,7 +146,8 @@ public class TraceSimulator {
             cache.AccessResult ar = cache.writeData(physAddr, storeValue);
             cycles += ar.latencyCycles;
         } else {
-            cycles += 1; // default 1 cycle if no cache
+            // No cache — charge main memory latency directly
+            cycles += cfg.getMainMemoryLatency();
             physicalMemory.writeWord(physAddr, storeValue);
         }
 

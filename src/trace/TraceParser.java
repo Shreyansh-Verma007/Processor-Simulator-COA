@@ -38,6 +38,10 @@ public class TraceParser {
             }
         }
 
+        if (instructions.isEmpty()) {
+            System.err.println("WARNING: Trace file '" + path + "' contains no instructions.");
+        }
+
         return instructions;
     }
 
@@ -90,7 +94,7 @@ public class TraceParser {
     private static int parseAddress(String s) {
         s = s.trim();
         if (s.startsWith("0x") || s.startsWith("0X")) {
-            return (int) Long.parseLong(s.substring(2), 16);
+            return Integer.parseUnsignedInt(s.substring(2), 16);
         }
         return Integer.parseInt(s);
     }
@@ -101,7 +105,11 @@ public class TraceParser {
     private static int parseRegister(String s) {
         s = s.trim().toLowerCase();
         if (s.startsWith("x")) {
-            return Integer.parseInt(s.substring(1));
+            int n = Integer.parseInt(s.substring(1));
+            if (n < 0 || n > 31) {
+                throw new IllegalArgumentException("Register out of range (x0-x31): " + s);
+            }
+            return n;
         }
         throw new IllegalArgumentException("Invalid register: " + s);
     }
