@@ -6,10 +6,10 @@ Instructions: 715736
 === Trace Replay Simulation Stats ===
 
 --- Execution ---
-Total Cycles              : 23451884
+Total Cycles              : 23485952
 Instructions Retired      : 715736
 IPC                       : 0.0305
-Stalls                    : 22736148
+Stalls                    : 22770216
 
 --- Virtual Memory ---
 TLB Hits                  : 208880
@@ -28,16 +28,16 @@ L1I Hits                  : 0
 L1I Misses                : 0
 L1I Miss Rate             : 0.0000
 
-L1D Hits                  : 0
-L1D Misses                : 0
-L1D Miss Rate             : 0.0000
+L1D Hits                  : 6476
+L1D Misses                : 351392
+L1D Miss Rate             : 0.9819
 
 L2 Hits                   : 0
 L2 Misses                 : 0
 L2 Miss Rate              : 0.0000
 
 --- Configuration ---
-Virtual Memory    : 536870912 bytes
+Virtual Memory    : 4294967296 bytes
 Physical Memory   : 262144 bytes
 Page Size         : 4096 bytes
 DTLB Entries      : 16
