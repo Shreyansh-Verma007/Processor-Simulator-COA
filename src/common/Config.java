@@ -39,7 +39,7 @@ public class Config {
     private int mainMemoryLatency;
 
     // ── Virtual Memory parameters ────────────────────────────────────────
-    private int virtualSizeBytes = 536870912;   // 512 MB default
+    private long virtualSizeBytes = 4294967296L;   // 4 GB default
     private int physicalSizeBytes = 262144;     // 64 frames * 4KB = 256 KB
     private int pageSizeBytes = 4096;           // 4 KB default
     private int dtlbEntries = 16;
@@ -57,7 +57,7 @@ public class Config {
         latencies.put(Opcode.SUB, 1);
         latencies.put(Opcode.MUL, 3);
         latencies.put(Opcode.DIV, 4);
-        latencies.put(Opcode.SLL, 1);
+        latencies.put(Opcode.SLL, 1)    ;
         latencies.put(Opcode.SRL, 1);
         latencies.put(Opcode.XOR, 1);
         latencies.put(Opcode.OR, 1);
@@ -87,7 +87,7 @@ public class Config {
         latencies.put(Opcode.HALT, 1);
 
         // Setup default cache hierarchy (uses the constants above)
-        this.l1i = new CacheConfig(DEF_L1I_SIZE, DEF_L1I_BLOCK, DEF_L1I_ASSOC, DEF_L1I_LATENCY, DEF_POLICY);
+        this.l1i = null; // L1I disabled per user request
         this.l1d = new CacheConfig(DEF_L1D_SIZE, DEF_L1D_BLOCK, DEF_L1D_ASSOC, DEF_L1D_LATENCY, DEF_POLICY);
         this.l2 = null; // No L2 cache per spec
         this.mainMemoryLatency = DEF_MEMORY_LATENCY;
@@ -127,7 +127,7 @@ public class Config {
 
     // ── Virtual Memory accessors ─────────────────────────────────────────
 
-    public int getVirtualSizeBytes() {
+    public long getVirtualSizeBytes() {
         return virtualSizeBytes;
     }
 
