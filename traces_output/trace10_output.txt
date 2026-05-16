@@ -6,10 +6,10 @@ Instructions: 715712
 === Trace Replay Simulation Stats ===
 
 --- Execution ---
-Total Cycles              : 19256854
+Total Cycles              : 55042454
 Instructions Retired      : 715712
-IPC                       : 0.0372
-Stalls                    : 18541142
+IPC                       : 0.0130
+Stalls                    : 53611030
 
 --- Virtual Memory ---
 TLB Hits                  : 285083
