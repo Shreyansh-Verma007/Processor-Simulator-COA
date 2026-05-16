@@ -41,7 +41,7 @@ public class CacheHierarchy {
     public AccessResult fetchInstruction(int address) {
         if (l1i == null) {
             // No instruction cache — read directly from memory
-            return new AccessResult(memory.readWord(address), 1);
+            return new AccessResult(memory.readWord(address), memoryLatency);
         }
         return readThrough(l1i, address);
     }
@@ -51,7 +51,7 @@ public class CacheHierarchy {
     /** Read a word of data through L1D → [L2] → Memory. */
     public AccessResult readData(int address) {
         if (l1d == null) {
-            return new AccessResult(memory.readWord(address), 1);
+            return new AccessResult(memory.readWord(address), memoryLatency);
         }
         return readThrough(l1d, address);
     }
@@ -69,7 +69,7 @@ public class CacheHierarchy {
     public AccessResult writeData(int address, int value) {
         if (l1d == null) {
             memory.writeWord(address, value);
-            return new AccessResult(0, 1);
+            return new AccessResult(0, memoryLatency);
         }
 
         // Single L1D lookup for stats
@@ -102,7 +102,7 @@ public class CacheHierarchy {
             int bytePos = (address % 4) * 8;
             word = (word & ~(0xFF << bytePos)) | ((value & 0xFF) << bytePos);
             memory.writeWord(wordAddr, word);
-            return new AccessResult(0, 1);
+            return new AccessResult(0, memoryLatency);
         }
 
         int wordAddress = (address / 4) * 4;
