@@ -86,12 +86,9 @@ public class TraceSimulator {
     }
 
     private void executeInstruction(TraceInstruction instr) {
-        // Instruction fetch latency: each instruction incurs a memory fetch penalty.
-        int fetchCycles = cfg.getMainMemoryLatency();
-        stats.cycles += fetchCycles;
-        if (fetchCycles > 1) {
-            stats.stalls += (fetchCycles - 1);
-        }
+        // Flat latency accumulator model: no pipeline stages, no inter-instruction
+        // hazards, no instruction fetch penalty. Each instruction costs exactly its
+        // own memory/execution latency. Stalls = total_cycles - instructions_retired.
         switch (instr.type) {
             case LOAD:
                 executeLoad(instr);
