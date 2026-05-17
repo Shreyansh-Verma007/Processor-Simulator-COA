@@ -195,12 +195,6 @@ public class VirtualMemoryUnit {
             saveToSwap(victimVPN, freedFrame);
         }
 
-        // Invalidate stale PIPT cache lines for this frame (correctness)
-        if (cacheHierarchy != null) {
-            int frameBaseAddr = freedFrame * cfg.getPageSizeBytes();
-            cacheHierarchy.invalidateFrame(frameBaseAddr, cfg.getPageSizeBytes());
-        }
-
         // Invalidate in TLB and page table
         tlb.invalidate(victimVPN);
         pageTable.unmapPage(victimVPN);

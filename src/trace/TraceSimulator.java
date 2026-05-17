@@ -190,32 +190,8 @@ public class TraceSimulator {
         idEx.latencyCyclesLeft = (baseLatency > 1) ? baseLatency - 1 : 0;
         // --- END HAZARD DETECTION ---
 
-        // Structural Hazard: unified memory collision (IF fetching clashes with MEM accessing data)
-        if (!cfg.hasCacheConfig() || (cfg.getL1I() == null && cfg.getL1D() == null)) {
-            if (!exMem.isNop && (exMem.opcode == common.Opcode.LW || exMem.opcode == common.Opcode.SW)) {
-                stats.cycles++;
-                stats.stalls++;
-            }
-        }
 
-        // Instruction fetch latency: each instruction incurs a memory fetch penalty.
-        int fetchCycles = 0;
-        TranslationResult ifTr = vmu.translateAddress(pc, false);
-        fetchCycles += ifTr.latencyCycles;
-        
-        if (cache != null && cfg.getL1I() != null) {
-            cache.AccessResult ar = cache.fetchInstruction(ifTr.physicalAddress);
-            fetchCycles += ar.latencyCycles;
-        } else {
-            fetchCycles += cfg.getMainMemoryLatency();
-        }
-        pc += 4;
-        
-        stats.cycles += fetchCycles;
-        if (fetchCycles > 1) {
-            stats.stalls += (fetchCycles - 1);
-        }
-        
+
         switch (instr.type) {
             case LOAD:
                 executeLoad(instr);
