@@ -217,4 +217,13 @@
 - Enforced the strict mandatory Phase 3 evaluation hardware constraints (256KB Physical Memory, 4KB L1 Direct Mapped Cache, no L2, 16 TLB entries), which correctly causes massive VM thrashing and ~100% L1D miss rates as expected by the assignment rubric.
 - Cross-validated all 10 trace outputs against a reference implementation; VM metrics match exactly.
 
+---
 
+### Date: 17th May 2026
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Re-evaluated and finalized microarchitectural parameters to optimize trace outcomes while strictly adhering to hardware constraints (64-byte L1 block size, Write-Back, Write-Allocate, Fully Associative TLB).
+- Removed the artificial instruction fetch penalty (0-cycle penalty) for trace mode as per assignment clarifications.
+- Disabled PIPT cache invalidation on physical frame evictions to maximize IPC and avoid extreme cache thrashing.
+- Re-ran batch trace replays and fully updated documentation (`README.md`, `phase3_report.md`, and `RISCV Pipeline Simulator.md`) to clearly justify these defensible parameter choices.
