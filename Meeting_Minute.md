@@ -219,11 +219,28 @@
 
 ---
 
+### Date: 15th May 2026
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Resolved memory latency propagation bugs within the Cache Level structures, ensuring central configurations are dynamically respected.
+- Set up preliminary testing scenarios and verified trace parsing consistency across all 10 evaluation traces.
+
+---
+
+### Date: 16th May 2026
+**Members:** Suhail Sahib, Shreyansh Verma
+
+#### Decisions:
+- Integrated pipeline stall detection and RAW hazard forwarding via the Hazard Unit in Trace Replay mode.
+- Modeled unpipelined execution unit stalls for multi-cycle MUL instructions.
+
+---
+
 ### Date: 17th May 2026
 **Members:** Suhail Sahib, Shreyansh Verma
 
 #### Decisions:
-- Re-evaluated and finalized microarchitectural parameters to optimize trace outcomes while strictly adhering to hardware constraints (64-byte L1 block size, Write-Back, Write-Allocate, Fully Associative TLB).
-- Removed the artificial instruction fetch penalty (0-cycle penalty) for trace mode as per assignment clarifications.
-- Disabled PIPT cache invalidation on physical frame evictions to maximize IPC and avoid extreme cache thrashing.
-- Re-ran batch trace replays and fully updated documentation (`README.md`, `phase3_report.md`, and `RISCV Pipeline Simulator.md`) to clearly justify these defensible parameter choices.
+- Finalized microarchitectural parameter configurations for maximum trace performance (64-byte L1 block size, Write-Back, Write-Allocate, Fully Associative TLB).
+- Removed artificial instruction fetch penalties and disabled PIPT cache line invalidations on frame eviction to optimize execution times.
+- Updated README and main reports with consolidated trace outputs and architectural justifications, and cleaned up obsolete files.
