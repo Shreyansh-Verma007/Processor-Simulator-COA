@@ -142,7 +142,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                    Hazard Detection Matrix                        │
+│                    Hazard Detection Matrix                       │
 ├──────────────────┬───────────────────────────────────────────────┤
 │ Hazard Type      │ Resolution Strategy                           │
 ├──────────────────┼───────────────────────────────────────────────┤
@@ -152,7 +152,7 @@
 │ Multi-cycle EX   │ Pipeline frozen while MUL/DIV counts down     │
 │ Branch mispredict│ 2-cycle flush: squash IF_ID + ID_EX, fix PC   │
 │ JAL              │ Flush + redirect to jump target               │
-│ IF cache miss    │ Entire pipeline frozen for miss latency        │
+│ IF cache miss    │ Entire pipeline frozen for miss latency       │
 │ MEM cache miss   │ Entire pipeline frozen (MEM prioritized)      │
 │ Concurrent miss  │ MEM miss served first, then IF miss (serial)  │
 └──────────────────┴───────────────────────────────────────────────┘
