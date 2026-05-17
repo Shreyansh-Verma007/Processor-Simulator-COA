@@ -6,22 +6,22 @@ Instructions: 715752
 === Trace Replay Simulation Stats ===
 
 --- Execution ---
-Total Cycles              : 34577548
+Total Cycles              : 26662336
 Instructions Retired      : 715752
-IPC                       : 0.0207
-Stalls                    : 33146044
+IPC                       : 0.0268
+Stalls                    : 25946584
 
 --- Virtual Memory ---
-TLB Hits                  : 715053
-TLB Misses                : 358575
-TLB Hit Rate              : 0.6660
-Page Walks                : 358575
-Page Faults               : 358575
-Page Evictions            : 358511
+TLB Hits                  : 0
+TLB Misses                : 357876
+TLB Hit Rate              : 0.0000
+Page Walks                : 357876
+Page Faults               : 357876
+Page Evictions            : 357812
 Dirty Evictions           : 125515
 Swap Outs (to disk)       : 125515
 Swap Ins  (from disk)     : 125492
-Translation Penalty Cycles: 22588128
+Translation Penalty Cycles: 21830436
 
 --- Cache Statistics ---
 L1I Hits                  : 0
