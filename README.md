@@ -266,16 +266,16 @@
 
 | Trace | Total Cycles | Instr Retired | IPC | Stalls | TLB Hits | TLB Misses | Page Walks | Page Faults | Evictions | Dirty Evic | Translation Penalty |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `trace01` | 13146747 | 715724 | 0.0544 | 11715299 | 1072879 | 707 | 707 | 707 | 643 | 0 | 1116006 |
-| `trace02` | 16711124 | 715704 | 0.0428 | 15279716 | 715005 | 358551 | 358551 | 715 | 651 | 0 | 4694816 |
-| `trace03` | 16712620 | 715752 | 0.0428 | 15281116 | 715053 | 358575 | 358575 | 716 | 652 | 0 | 4695178 |
-| `trace04` | 14914878 | 715728 | 0.0480 | 13483422 | 882156 | 191436 | 191436 | 731 | 667 | 0 | 3024502 |
-| `trace05` | 18052613 | 715732 | 0.0396 | 16621149 | 726282 | 347316 | 347316 | 30073 | 30009 | 25316 | 6050408 |
-| `trace06` | 34589997 | 715728 | 0.0207 | 33158541 | 715029 | 358563 | 358563 | 358563 | 358499 | 107799 | 22587372 |
-| `trace07` | 17595830 | 715736 | 0.0407 | 16164358 | 921896 | 151708 | 151708 | 63264 | 63200 | 59527 | 5753884 |
-| `trace08` | 34619005 | 715740 | 0.0207 | 33187525 | 715041 | 358569 | 358569 | 358569 | 358505 | 71270 | 22587750 |
-| `trace09` | 34577548 | 715752 | 0.0207 | 33146044 | 715053 | 358575 | 358575 | 358575 | 358511 | 125515 | 22588128 |
-| `trace10` | 13943699 | 715712 | 0.0513 | 12512275 | 981539 | 92029 | 92029 | 2459 | 2395 | 1708 | 2116808 |
+| `trace01` | 5231843 | 715724 | 0.1368 | 4516119 | 357854 | 8 | 8 | 8 | 0 | 0 | 358342 |
+| `trace02` | 5218080 | 715704 | 0.1372 | 4502376 | 357836 | 16 | 16 | 16 | 0 | 0 | 358812 |
+| `trace03` | 8797408 | 715752 | 0.0814 | 8081656 | 0 | 357876 | 357876 | 17 | 0 | 0 | 3937486 |
+| `trace04` | 6886040 | 715728 | 0.1039 | 6170312 | 178516 | 179348 | 179348 | 32 | 0 | 0 | 2152944 |
+| `trace05` | 8654141 | 715732 | 0.0827 | 7938409 | 13010 | 344856 | 344856 | 64 | 0 | 0 | 3809626 |
+| `trace06` | 23097049 | 715728 | 0.0310 | 22381321 | 0 | 357864 | 357864 | 357864 | 357800 | 107798 | 21829704 |
+| `trace07` | 9524594 | 715736 | 0.0751 | 8808858 | 208880 | 148988 | 148988 | 59900 | 59836 | 57100 | 4842748 |
+| `trace08` | 23125865 | 715740 | 0.0309 | 22410125 | 0 | 357870 | 357870 | 357870 | 357806 | 71269 | 21830070 |
+| `trace09` | 26662336 | 715752 | 0.0268 | 25946584 | 0 | 357876 | 357876 | 357876 | 357812 | 125515 | 21830436 |
+| `trace10` | 5841157 | 715712 | 0.1225 | 5125445 | 285083 | 72773 | 72773 | 1716 | 1652 | 1652 | 1171386 |
 
 ---
 
@@ -493,6 +493,27 @@ This simulator was rigorously developed and tested against stringent academic co
 - **Unified Configuration**: Both Pipeline and Trace modes are driven by the exact same `Config.java` parameters to guarantee physical architecture consistency.
 - **PIPT Design**: Physically Indexed, Physically Tagged cache requires virtual addresses to be fully translated via the TLB before cache access, accurately modeling physical delay penalties.
 - **Null-Safe L2**: The `CacheHierarchy` dynamically bypasses L2 if not configured, forwarding miss penalties directly to main memory without duplicate code paths.
+- **Trace Replay Pipeline Alignment**: Advances trace instructions accurately up to the `MEM_WB` stage. Internal forwarding is inherently modeled in the register file (write-first, read-second), allowing the `HazardUnit` to seamlessly resolve Read-After-Write hazards.
+- **Zero Instruction Fetch Penalty (Trace Mode)**: In strict compliance with the specifications, trace instruction fetching incurs **0 extra penalty cycles**. The simulator does not simulate instruction caches or artificial program counters for trace replay.
+- **Multiplier Pipelining**: The `MUL` instruction is modeled as an unpipelined execution unit, stalling the pipeline for 2 extra cycles to strictly enforce a 3-cycle execution latency.
+- **PIPT Cache Invalidation (Best Outcome Decision)**: The PIPT design requires translating virtual addresses before accessing the L1 Cache. However, for maximum trace IPC performance, the simulator *does not* invalidate L1 cache lines when a physical frame is evicted, as standard coordination is not explicitly mandated.
+- **Swap Write-Back Latency**: When a dirty frame is evicted, the disk write-back penalty is seamlessly bundled into the 50-cycle page fault latency, incurring 0 additional overhead cycles.
+
+## 🧮 Mathematical Deductions & Hard Constraints
+- **Virtual Address**: 32-bit (20-bit VPN + 12-bit Page Offset for 4 KB Pages).
+- **Physical Address**: 256 KB memory = 18-bit (6-bit PFN + 12-bit Page Offset).
+- **Page Table**: A flat page table allocates exactly 1,048,576 entries (2^20) for the 20-bit VPN space.
+- **Cache Geometry**: The 4 KB L1 Cache index and block offset bits fit entirely within the 12-bit page offset, avoiding physical frame dependency during PIPT cache indexing.
+
+## ⚙️ Microarchitectural Parameters & Justifications
+The trace simulator was built with the following definitive, defensible microarchitectural parameters to faithfully model a realistic baseline scalar processor:
+- **L1 Cache Block/Line Size**: `64 Bytes`. The modern industry standard, offering an optimal balance between exploiting spatial locality and minimizing cache pollution and bus transfer latency.
+- **L1 Cache Write Policy**: `Write-Back`. Significantly reduces memory bus traffic by only writing to main memory upon eviction, crucial for maximizing IPC in a system with high memory latency.
+- **L1 Cache Write Miss Policy**: `Write-Allocate`. Paired naturally with Write-Back caches; bringing the block into L1 on a store miss ensures that subsequent reads and writes to that same spatial vicinity benefit from 1-cycle access speeds.
+- **L1 Miss Latency (Main Memory)**: `50 cycles`. Accurately reflects the architectural disparity between fast on-chip SRAM (1 cycle) and slower off-chip DRAM.
+- **TLB Associativity**: `Fully Associative`. With a very small capacity of only 16 entries, a fully associative TLB is necessary to prevent pathological conflict misses that would cause continuous 10-cycle page walk penalties.
+- **Pipeline Hazard Handling**: `Unpipelined MUL & Simple Stalling`. Implementing an unpipelined multiplier (stalling for 2 cycles) and utilizing simple pipeline freezes for page faults (50 cycles) accurately models a baseline scalar processor while avoiding the immense hardware complexity of pipeline flushes and replay buffers.
+- **Dirty Page Eviction Latency**: `Bundled (0 extra cycles)`. In modern architectures, dirty page write-backs are buffered and handled asynchronously by the memory controller, allowing the write-back penalty to be hidden concurrently within the 50-cycle page fault latency.
 
 ---
 

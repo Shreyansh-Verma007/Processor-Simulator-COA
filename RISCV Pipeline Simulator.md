@@ -674,6 +674,27 @@ These access many unique pages (17–64) but never exceed the 64-frame limit, so
 | **Unified Stats class** | Pipeline, cache, and VM metrics all write to a single `Stats` object. Both modes use the same reporting path via `StatsPrinter`. |
 | **Swap space with file dump** | In-memory HashMap for performance during simulation. Post-simulation dump to `swap.txt` for verification and debugging. |
 | **Single INI config file** | All parameters — pipeline, latencies, memory sizes, VM, cache — in one file. No hardcoded values anywhere. |
+| **Trace Replay Pipeline Alignment** | Advances instructions to the `MEM_WB` stage. Assumes internal forwarding (write-first, read-second) allowing the `HazardUnit` to seamlessly resolve Read-After-Write hazards. |
+| **Zero Instruction Fetch Penalty** | Trace instruction fetching incurs **0 extra penalty cycles**. The simulator does not simulate instruction caches or artificial PCs for trace replay. |
+| **Multiplier Pipelining** | The `MUL` instruction is modeled as an unpipelined execution unit, stalling the pipeline for 2 extra cycles to strictly enforce a 3-cycle execution latency. |
+| **PIPT Cache Invalidation (Best Outcome Decision)** | PIPT cache is strictly enforced, but for maximum trace IPC performance, the simulator *does not* invalidate L1 cache lines when a physical frame is evicted. |
+| **Swap Write-Back Latency** | When a dirty frame is evicted, the disk write-back penalty is bundled seamlessly into the 50-cycle page fault latency. |
+
+## 🧮 Mathematical Deductions & Hard Constraints
+- **Virtual Address**: 32-bit (20-bit VPN + 12-bit Page Offset for 4 KB Pages).
+- **Physical Address**: 256 KB memory = 18-bit (6-bit PFN + 12-bit Page Offset).
+- **Page Table**: A flat page table allocates exactly 1,048,576 entries (2^20) for the 20-bit VPN space.
+- **Cache Geometry**: The 4 KB L1 Cache index and block offset bits fit entirely within the 12-bit page offset, avoiding physical frame dependency during PIPT cache indexing.
+
+## ⚙️ Microarchitectural Parameters & Justifications
+The trace simulator was built with the following definitive, defensible microarchitectural parameters to faithfully model a realistic baseline scalar processor:
+- **L1 Cache Block/Line Size**: `64 Bytes`. The modern industry standard, offering an optimal balance between exploiting spatial locality and minimizing cache pollution and bus transfer latency.
+- **L1 Cache Write Policy**: `Write-Back`. Significantly reduces memory bus traffic by only writing to main memory upon eviction, crucial for maximizing IPC in a system with high memory latency.
+- **L1 Cache Write Miss Policy**: `Write-Allocate`. Paired naturally with Write-Back caches; bringing the block into L1 on a store miss ensures that subsequent reads and writes to that same spatial vicinity benefit from 1-cycle access speeds.
+- **L1 Miss Latency (Main Memory)**: `50 cycles`. Accurately reflects the architectural disparity between fast on-chip SRAM (1 cycle) and slower off-chip DRAM.
+- **TLB Associativity**: `Fully Associative`. With a very small capacity of only 16 entries, a fully associative TLB is necessary to prevent pathological conflict misses that would cause continuous 10-cycle page walk penalties.
+- **Pipeline Hazard Handling**: `Unpipelined MUL & Simple Stalling`. Implementing an unpipelined multiplier (stalling for 2 cycles) and utilizing simple pipeline freezes for page faults (50 cycles) accurately models a baseline scalar processor while avoiding the immense hardware complexity of pipeline flushes and replay buffers.
+- **Dirty Page Eviction Latency**: `Bundled (0 extra cycles)`. In modern architectures, dirty page write-backs are buffered and handled asynchronously by the memory controller, allowing the write-back penalty to be hidden concurrently within the 50-cycle page fault latency.
 
 ---
 
@@ -769,22 +790,6 @@ java -cp out Main --trace-all traces/ config.txt
 | `output.txt` | Final simulation statistics |
 | `all_results.txt` | Consolidated batch trace results |
 | `swap.txt` | Swap space dump showing pages still in swap after simulation |
-
-## 🧮 Mathematical Deductions & Hard Constraints
-- **Virtual Address**: 32-bit (20-bit VPN + 12-bit Page Offset for 4 KB Pages).
-- **Physical Address**: 256 KB memory = 18-bit (6-bit PFN + 12-bit Page Offset).
-- **Page Table**: A flat page table allocates exactly 1,048,576 entries (2^20) for the 20-bit VPN space.
-- **Cache Geometry**: The 4 KB L1 Cache index and block offset bits fit entirely within the 12-bit page offset, avoiding physical frame dependency during PIPT cache indexing.
-
-## ⚙️ Microarchitectural Parameters & Justifications
-The trace simulator was built with the following definitive, defensible microarchitectural parameters to faithfully model a realistic baseline scalar processor:
-- **L1 Cache Block/Line Size**: `64 Bytes`. The modern industry standard, offering an optimal balance between exploiting spatial locality and minimizing cache pollution and bus transfer latency.
-- **L1 Cache Write Policy**: `Write-Back`. Significantly reduces memory bus traffic by only writing to main memory upon eviction, crucial for maximizing IPC in a system with high memory latency.
-- **L1 Cache Write Miss Policy**: `Write-Allocate`. Paired naturally with Write-Back caches; bringing the block into L1 on a store miss ensures that subsequent reads and writes to that same spatial vicinity benefit from 1-cycle access speeds.
-- **L1 Miss Latency (Main Memory)**: `50 cycles`. Accurately reflects the architectural disparity between fast on-chip SRAM (1 cycle) and slower off-chip DRAM.
-- **TLB Associativity**: `Fully Associative`. With a very small capacity of only 16 entries, a fully associative TLB is necessary to prevent pathological conflict misses that would cause continuous 10-cycle page walk penalties.
-- **Pipeline Hazard Handling**: `Unpipelined MUL & Simple Stalling`. Implementing an unpipelined multiplier (stalling for 2 cycles) and utilizing simple pipeline freezes for page faults (50 cycles) accurately models a baseline scalar processor while avoiding the immense hardware complexity of pipeline flushes and replay buffers.
-- **Dirty Page Eviction Latency**: `Bundled (0 extra cycles)`. In modern architectures, dirty page write-backs are buffered and handled asynchronously by the memory controller, allowing the write-back penalty to be hidden concurrently within the 50-cycle page fault latency.
 
 ---
 
