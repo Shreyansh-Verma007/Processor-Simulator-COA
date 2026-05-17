@@ -45,3 +45,8 @@ all_results.txt
 test_results.txt
 tmp_sources.txt
 
+### Scratch / backup files ###
+temp.java
+prev_trace.java
+sources.txt
+
