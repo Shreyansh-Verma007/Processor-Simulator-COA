@@ -10,7 +10,7 @@ package trace;
  */
 public class TraceInstruction {
 
-    public enum Type { LOAD, STORE, ADD, MUL }
+    public enum Type { LOAD, STORE, ADD, MUL, BRANCH, JUMP }
 
     public final Type type;
     public final int address;   // virtual address for L/S (0 for ALU ops)
@@ -46,6 +46,16 @@ public class TraceInstruction {
         return new TraceInstruction(Type.MUL, 0, rd, rs1, rs2);
     }
 
+    /** Create a BRANCH instruction: BEQ xRS1 xRS2 0xADDR */
+    public static TraceInstruction branch(int rs1, int rs2, int address) {
+        return new TraceInstruction(Type.BRANCH, address, 0, rs1, rs2);
+    }
+
+    /** Create a JUMP instruction: JAL xRD 0xADDR */
+    public static TraceInstruction jump(int rd, int address) {
+        return new TraceInstruction(Type.JUMP, address, rd, 0, 0);
+    }
+
     @Override
     public String toString() {
         switch (type) {
@@ -57,6 +67,10 @@ public class TraceInstruction {
                 return "ADD x" + rd + " x" + rs1 + " x" + rs2;
             case MUL:
                 return "MUL x" + rd + " x" + rs1 + " x" + rs2;
+            case BRANCH:
+                return "BRANCH x" + rs1 + " x" + rs2 + " 0x" + Integer.toHexString(address);
+            case JUMP:
+                return "JUMP x" + rd + " 0x" + Integer.toHexString(address);
             default:
                 return "UNKNOWN";
         }

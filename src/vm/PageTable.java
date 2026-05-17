@@ -9,8 +9,8 @@ public class PageTable {
     private final PageTableEntry[] entries;
     private final int numPages;
 
-    public PageTable(int virtualSizeBytes, int pageSizeBytes) {
-        this.numPages = virtualSizeBytes / pageSizeBytes;
+    public PageTable(long virtualSizeBytes, int pageSizeBytes) {
+        this.numPages = (int) (virtualSizeBytes / pageSizeBytes);
         this.entries = new PageTableEntry[numPages];
         for (int i = 0; i < numPages; i++) {
             entries[i] = new PageTableEntry();

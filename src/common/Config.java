@@ -28,7 +28,7 @@ public class Config {
     private static final int DEF_L2_ASSOC = 1;
     private static final int DEF_L2_LATENCY = 10;
 
-    private static final int DEF_MEMORY_LATENCY = 50;
+    private static final int DEF_MEMORY_LATENCY = 10;
     private static final ReplacementPolicy DEF_POLICY = ReplacementPolicy.LRU;
     private static final boolean DEF_FORWARDING = true;
 

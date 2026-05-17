@@ -268,35 +268,6 @@ On **eviction of a dirty block:**
 
 This approach minimizes memory bus traffic compared to write-through.
 
-### Write-Allocate vs. Write-No-Allocate — Policy Comparison
-
-When a **Store (S) instruction misses** in the L1D cache, two fundamentally different policies exist:
-
-| Property | **Write-Allocate (Our Simulator)** | **Write-No-Allocate (Alternative)** |
-|----------|-----------------------------------|--------------------------------------|
-| On store miss | Fetch the missing block from memory into L1D, then write | Write directly to memory; do **not** load block into L1D |
-| Block loaded into cache? | ✅ Yes | ❌ No |
-| Memory bus traffic on miss | 1 read (fetch block) + deferred write-back on eviction | 1 write immediately |
-| Future accesses to same block | Served from L1D (fast) | Miss again (block still absent) |
-| Stall cycles on store miss | `main_mem_access_latency` charged **immediately** | Write posted to memory — may be absorbed by a write buffer |
-| Miss rate impact | Miss rate correctly reflects store misses | Miss rate identical; stall cycles may be hidden by write buffer |
-
-#### Why Our Simulator Reports Higher Stall Cycles
-
-Under **Write-Allocate**, every store miss pays `main_mem_access_latency` (50 cycles in our config) **synchronously** — the pipeline stalls while the block is fetched into L1D before the write proceeds. This is the architecturally correct behavior: the processor cannot continue until the store completes.
-
-Under **Write-No-Allocate with a write buffer**, a store miss can be posted to the write buffer and the pipeline can continue speculatively while memory is updated asynchronously. Depending on whether the alternative simulator charges stall cycles for write-buffer fills, it may report:
-- **Same L1D miss counts** (store misses are still recorded as misses in both policies)
-- **Fewer stall cycles** (if write-buffer latency is not added to the stall counter)
-
-This creates a situation where two simulators can report **identical cache miss statistics** but **significantly different stall cycle counts** — our simulator's higher stall count is not a bug; it faithfully models the synchronous cost of bringing the missing block into the hierarchy before proceeding.
-
-#### Implication for Our Results
-
-In our trace results, store-heavy traces (e.g., `trace06`, `trace08`, `trace09`) show extremely high stall counts — a direct consequence of the Write-Allocate policy ensuring every store miss is a visible pipeline stall. A Write-No-Allocate simulator running the same traces would likely report lower stall cycles while showing the same or similar miss rates, making it appear more "efficient" without actually modeling the memory bus correctly.
-
-> **Design Rationale:** Write-Allocate is the standard policy for write-back caches because it exploits **spatial locality** — after paying the miss penalty to fetch the block, subsequent reads and writes to the same block are served entirely from cache. The upfront cost pays for itself in workloads with high store-then-load locality.
-
 ### 32-Bit Instruction Encoding
 
 To enable instruction cache simulation, we implemented a **32-bit binary instruction encoder**:
@@ -329,7 +300,7 @@ L2_SIZE = 8192
 L2_BLOCK_SIZE = 64
 L2_ASSOCIATIVITY = 4
 L2_LATENCY = 50
-MEMORY_LATENCY = 50
+MEMORY_LATENCY = 200
 REPLACEMENT_POLICY = LRU
 ```
 
@@ -514,7 +485,7 @@ After translation, the physical address is passed to the **PIPT (Physically Inde
 | Cache Outcome | Additional Latency | Total (with TLB hit) | Total (with page fault) |
 |--------------|-------------------|---------------------|------------------------|
 | L1D Hit | 1 cycle | **2 cycles** | 62 cycles |
-| L1D Miss | 1 + 50 cycles (memory) | 52 cycles | **112 cycles** |
+| L1D Miss | 1 + 200 cycles (memory) | 202 cycles | **262 cycles** |
 
 ### Trace Replay Engine — `TraceSimulator.java` (225 lines)
 
@@ -534,7 +505,7 @@ MUL x8 x7 x9         # x8 = x7 * x9 (3 cycles)
 1. Translate virtual address → physical address via `vmu.translateAddress(addr, false)` — accumulates translation latency
 2. Read from L1D cache using the physical address (PIPT): `dataCache.read(physAddr)`
    - Cache hit: +1 cycle (L1D latency)
-   - Cache miss: +1 + 50 cycles (L1D latency + memory latency). Block is fetched from memory, installed in L1D. Dirty evictions from L1D are written back to memory.
+   - Cache miss: +1 + 200 cycles (L1D latency + memory latency). Block is fetched from memory, installed in L1D. Dirty evictions from L1D are written back to memory.
 3. Write the loaded value into `registers[rd]` (respecting x0 = 0 immutability)
 4. Total cycles charged: `translation_latency + cache_latency`
 5. Stalls = `total_cycles - 1` (1 cycle is "normal" execution, rest are penalties)
@@ -575,7 +546,7 @@ Since Phase 3 spec requires **no L2 cache**, a lightweight `TraceDataCache` wrap
 | Event | Latency |
 |-------|---------|
 | L1D Hit | `L1D_LATENCY` (1 cycle) |
-| L1D Miss | `L1D_LATENCY + MEMORY_LATENCY` (51 cycles) |
+| L1D Miss | `L1D_LATENCY + MEMORY_LATENCY` (201 cycles) |
 
 ### Null-Safe L2 Design
 
@@ -603,7 +574,7 @@ L1D_SIZE = 4096                    # 4 KB direct-mapped L1D
 L1D_BLOCK_SIZE = 64
 L1D_ASSOCIATIVITY = 1
 L1D_LATENCY = 1
-MEMORY_LATENCY = 50
+MEMORY_LATENCY = 200
 
 [latencies]
 ADD = 1                            # ALU instruction latencies
@@ -650,23 +621,23 @@ The simulator reports the following metrics at the end of trace replay:
 | Replacement Policy | LRU |
 | L1D Cache | 4 KB, Direct-Mapped, 1 cycle latency |
 | L2 Cache | None |
-| Memory Latency | 50 cycles |
+| Memory Latency | 200 cycles |
 | Cache Policy | PIPT (TLB before cache) |
 
 ### Results — All 10 Traces
 
 | Trace | Total Cycles | Instr Retired | IPC | Stalls | TLB Hits | TLB Misses | Page Walks | Page Faults | Evictions | Dirty Evic | Translation Penalty |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `trace01` | 19325028 | 715724 | 0.0370 | 18609304 | 357854 | 8 | 8 | 8 | 0 | 0 | 358342 |
-| `trace02` | 19324968 | 715704 | 0.0370 | 18609264 | 357836 | 16 | 16 | 16 | 0 | 0 | 358812 |
-| `trace03` | 22904914 | 715752 | 0.0312 | 22189162 | 0 | 357876 | 357876 | 17 | 0 | 0 | 3937486 |
-| `trace04` | 20555886 | 715728 | 0.0348 | 19840158 | 178516 | 179348 | 179348 | 32 | 0 | 0 | 2152944 |
-| `trace05` | 22772324 | 715732 | 0.0314 | 22056592 | 13010 | 344856 | 344856 | 64 | 0 | 0 | 3809626 |
-| `trace06` | 40796496 | 715728 | 0.0175 | 40080768 | 0 | 357864 | 357864 | 357864 | 357800 | 107798 | 21829704 |
-| `trace07` | 23485952 | 715736 | 0.0305 | 22770216 | 208880 | 148988 | 148988 | 59900 | 59836 | 57100 | 4842748 |
-| `trace08` | 40797180 | 715740 | 0.0175 | 40081440 | 0 | 357870 | 357870 | 357870 | 357806 | 71269 | 21830070 |
-| `trace09` | 40797864 | 715752 | 0.0175 | 40082112 | 0 | 357876 | 357876 | 357876 | 357812 | 125515 | 21830436 |
-| `trace10` | 19256854 | 715712 | 0.0372 | 18541142 | 285083 | 72773 | 72773 | 1716 | 1652 | 1652 | 1171386 |
+| `trace01` | 13146747 | 715724 | 0.0544 | 11715299 | 1072879 | 707 | 707 | 707 | 643 | 0 | 1116006 |
+| `trace02` | 16711124 | 715704 | 0.0428 | 15279716 | 715005 | 358551 | 358551 | 715 | 651 | 0 | 4694816 |
+| `trace03` | 16712620 | 715752 | 0.0428 | 15281116 | 715053 | 358575 | 358575 | 716 | 652 | 0 | 4695178 |
+| `trace04` | 14914878 | 715728 | 0.0480 | 13483422 | 882156 | 191436 | 191436 | 731 | 667 | 0 | 3024502 |
+| `trace05` | 18052613 | 715732 | 0.0396 | 16621149 | 726282 | 347316 | 347316 | 30073 | 30009 | 25316 | 6050408 |
+| `trace06` | 34589997 | 715728 | 0.0207 | 33158541 | 715029 | 358563 | 358563 | 358563 | 358499 | 107799 | 22587372 |
+| `trace07` | 17595830 | 715736 | 0.0407 | 16164358 | 921896 | 151708 | 151708 | 63264 | 63200 | 59527 | 5753884 |
+| `trace08` | 34619005 | 715740 | 0.0207 | 33187525 | 715041 | 358569 | 358569 | 358569 | 358505 | 71270 | 22587750 |
+| `trace09` | 34577548 | 715752 | 0.0207 | 33146044 | 715053 | 358575 | 358575 | 358575 | 358511 | 125515 | 22588128 |
+| `trace10` | 13943699 | 715712 | 0.0513 | 12512275 | 981539 | 92029 | 92029 | 2459 | 2395 | 1708 | 2116808 |
 
 ### Analysis
 
@@ -703,7 +674,6 @@ These access many unique pages (17–64) but never exceed the 64-frame limit, so
 | **Unified Stats class** | Pipeline, cache, and VM metrics all write to a single `Stats` object. Both modes use the same reporting path via `StatsPrinter`. |
 | **Swap space with file dump** | In-memory HashMap for performance during simulation. Post-simulation dump to `swap.txt` for verification and debugging. |
 | **Single INI config file** | All parameters — pipeline, latencies, memory sizes, VM, cache — in one file. No hardcoded values anywhere. |
-| **Write-Allocate on store misses** | When a store misses in L1D, the missing block is fetched from memory before the write proceeds. This causes a synchronous 200-cycle stall but ensures the block is resident for subsequent accesses. A Write-No-Allocate policy would write directly to memory with no stall visible in the cache stats — producing the same miss count but deceptively lower stall cycles. |
 
 ---
 

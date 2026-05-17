@@ -77,6 +77,20 @@ public class TraceParser {
                     int mulRs2 = parseRegister(parts[3]);
                     return TraceInstruction.mul(mulRd, mulRs1, mulRs2);
 
+                case "BEQ":
+                case "BNE":
+                    // BEQ xRS1 xRS2 0xADDR
+                    int bRs1 = parseRegister(parts[1]);
+                    int bRs2 = parseRegister(parts[2]);
+                    int bAddr = parseAddress(parts[3]);
+                    return TraceInstruction.branch(bRs1, bRs2, bAddr);
+
+                case "JAL":
+                    // JAL xRD 0xADDR
+                    int jRd = parseRegister(parts[1]);
+                    int jAddr = parseAddress(parts[2]);
+                    return TraceInstruction.jump(jRd, jAddr);
+
                 default:
                     throw new IllegalArgumentException(
                             "Unknown instruction '" + op + "' at line " + lineNum);

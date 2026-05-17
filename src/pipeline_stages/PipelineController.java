@@ -79,7 +79,7 @@ public class PipelineController {
                 continue;
             }
 
-            boolean stall = hazard.needsStall(idEx, ifId, exMem, cfg);
+            boolean stall = hazard.needsStall(idEx, ifId, exMem, memWb, cfg);
             boolean isMultiCycleStall = (idEx.latencyCyclesLeft > 0);
 
             // Tick stages in reverse order (WB → MEM → EX)

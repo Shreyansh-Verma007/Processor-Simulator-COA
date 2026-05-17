@@ -7,6 +7,12 @@ import vm.TranslationResult;
 import vm.VirtualMemoryUnit;
 import cache.CacheHierarchy;
 
+import pipeline_registers.ID_EX;
+import pipeline_registers.EX_MEM;
+import pipeline_registers.IF_ID;
+import pipeline_registers.MEM_WB;
+import hazard.HazardUnit;
+
 import java.io.PrintStream;
 import java.util.List;
 
@@ -36,6 +42,14 @@ public class TraceSimulator {
     // Simple register file for trace mode
     private final int[] registers = new int[32];
 
+    // Pipeline registers and Hazard Unit for hazard stall detection
+    private final HazardUnit hazardUnit = new HazardUnit();
+    private ID_EX idEx = new ID_EX();
+    private EX_MEM exMem = new EX_MEM();
+    private MEM_WB memWb = new MEM_WB();
+    
+    private int pc = 0x400000; // artificial PC for trace simulation
+
     public TraceSimulator(Config cfg) {
         this.cfg = cfg;
         this.stats = new Stats();
@@ -44,10 +58,10 @@ public class TraceSimulator {
         this.physicalMemory = new Memory(cfg.getPhysicalSizeBytes());
         this.vmu = new VirtualMemoryUnit(cfg, physicalMemory);
 
-        // Set up cache hierarchy (no L1I in trace mode, but L1D and L2 are supported)
+        // Set up cache hierarchy
         if (cfg.hasCacheConfig()) {
             this.cache = new CacheHierarchy(
-                    null, cfg.getL1D(), cfg.getL2(),
+                    cfg.getL1I(), cfg.getL1D(), cfg.getL2(),
                     cfg.getMainMemoryLatency(), physicalMemory);
             // Wire VMU → cache for PIPT frame invalidation on page eviction
             this.vmu.setCacheHierarchy(this.cache);
@@ -85,10 +99,123 @@ public class TraceSimulator {
         vmu.writeSwapFile();
     }
 
+    private common.Instruction createMockInstruction(TraceInstruction t) {
+        switch (t.type) {
+            case LOAD:
+                // rd is written. rs1 is not available, so use 0.
+                return common.Instruction.iType(common.Opcode.LW, t.rd, 0, 0);
+            case STORE:
+                // rs1 is the value being stored.
+                return common.Instruction.sType(common.Opcode.SW, 0, t.rs1, 0);
+            case ADD:
+                return common.Instruction.rType(common.Opcode.ADD, t.rd, t.rs1, t.rs2);
+            case MUL:
+                return common.Instruction.rType(common.Opcode.MUL, t.rd, t.rs1, t.rs2);
+            default:
+                return common.Instruction.uType(common.Opcode.HALT);
+        }
+    }
+
     private void executeInstruction(TraceInstruction instr) {
-        // Flat latency accumulator model: no pipeline stages, no inter-instruction
-        // hazards, no instruction fetch penalty. Each instruction costs exactly its
-        // own memory/execution latency. Stalls = total_cycles - instructions_retired.
+        // --- HAZARD DETECTION ---
+        common.Instruction mockInstr = createMockInstruction(instr);
+        IF_ID ifId = new IF_ID();
+        ifId.isNop = false;
+        ifId.instruction = mockInstr;
+
+        while (hazardUnit.needsStall(idEx, ifId, exMem, memWb, cfg)) {
+            stats.cycles++;
+            stats.stalls++;
+            
+            boolean isMultiCycleStall = (idEx.latencyCyclesLeft > 0);
+            if (isMultiCycleStall) {
+                idEx.latencyCyclesLeft--;
+                
+                // Advance MEM to WB
+                MEM_WB nextMemWb = new MEM_WB();
+                if (!exMem.isNop) {
+                    nextMemWb.isNop = false;
+                    nextMemWb.opcode = exMem.opcode;
+                    nextMemWb.rd = exMem.rd;
+                }
+                memWb = nextMemWb;
+                
+                exMem = new EX_MEM(); // bubble in MEM
+            } else {
+                // advance EX/MEM to MEM/WB
+                MEM_WB nextMemWb = new MEM_WB();
+                if (!exMem.isNop) {
+                    nextMemWb.isNop = false;
+                    nextMemWb.opcode = exMem.opcode;
+                    nextMemWb.rd = exMem.rd;
+                }
+                memWb = nextMemWb;
+                
+                // advance ID/EX to EX/MEM
+                EX_MEM nextExMem = new EX_MEM();
+                if (!idEx.isNop) {
+                    nextExMem.isNop = false;
+                    nextExMem.opcode = idEx.opcode;
+                    nextExMem.rd = idEx.rd;
+                }
+                exMem = nextExMem;
+                idEx = new ID_EX(); // bubble in EX
+            }
+        }
+
+        // Advance pipeline: ID -> EX, EX -> MEM, MEM -> WB
+        MEM_WB nextMemWb = new MEM_WB();
+        if (!exMem.isNop) {
+            nextMemWb.isNop = false;
+            nextMemWb.opcode = exMem.opcode;
+            nextMemWb.rd = exMem.rd;
+        }
+        memWb = nextMemWb;
+        
+        EX_MEM nextExMem = new EX_MEM();
+        if (!idEx.isNop) {
+            nextExMem.isNop = false;
+            nextExMem.opcode = idEx.opcode;
+            nextExMem.rd = idEx.rd;
+        }
+        exMem = nextExMem;
+        
+        idEx = new ID_EX();
+        idEx.isNop = false;
+        idEx.opcode = mockInstr.opcode();
+        idEx.rd = mockInstr.rd();
+        idEx.rs1 = mockInstr.rs1();
+        idEx.rs2 = mockInstr.rs2();
+        int baseLatency = cfg.getLatency(idEx.opcode);
+        idEx.latencyCyclesLeft = (baseLatency > 1) ? baseLatency - 1 : 0;
+        // --- END HAZARD DETECTION ---
+
+        // Structural Hazard: unified memory collision (IF fetching clashes with MEM accessing data)
+        if (!cfg.hasCacheConfig() || (cfg.getL1I() == null && cfg.getL1D() == null)) {
+            if (!exMem.isNop && (exMem.opcode == common.Opcode.LW || exMem.opcode == common.Opcode.SW)) {
+                stats.cycles++;
+                stats.stalls++;
+            }
+        }
+
+        // Instruction fetch latency: each instruction incurs a memory fetch penalty.
+        int fetchCycles = 0;
+        TranslationResult ifTr = vmu.translateAddress(pc, false);
+        fetchCycles += ifTr.latencyCycles;
+        
+        if (cache != null && cfg.getL1I() != null) {
+            cache.AccessResult ar = cache.fetchInstruction(ifTr.physicalAddress);
+            fetchCycles += ar.latencyCycles;
+        } else {
+            fetchCycles += cfg.getMainMemoryLatency();
+        }
+        pc += 4;
+        
+        stats.cycles += fetchCycles;
+        if (fetchCycles > 1) {
+            stats.stalls += (fetchCycles - 1);
+        }
+        
         switch (instr.type) {
             case LOAD:
                 executeLoad(instr);
@@ -101,6 +228,16 @@ public class TraceSimulator {
                 break;
             case MUL:
                 executeMul(instr);
+                break;
+            case BRANCH:
+            case JUMP:
+                // Branches/Jumps execute in EX. For trace simulation, they cause a control hazard flush penalty.
+                // Assuming a 2-cycle penalty for taken branches or mispredictions.
+                stats.cycles += 2;
+                stats.stalls += 2;
+                stats.branchFlushes++;
+                // Clear instructions behind the branch (simulating a flush)
+                idEx = new ID_EX(); // bubble in EX
                 break;
         }
         stats.instructionsRetired++;
@@ -161,33 +298,27 @@ public class TraceSimulator {
     }
 
     /**
-     * ADD: rd = rs1 + rs2, costs configured latency (default 1 cycle).
+     * ADD: rd = rs1 + rs2, base execution cycle.
      */
     private void executeAdd(TraceInstruction instr) {
         int result = registers[instr.rs1] + registers[instr.rs2];
         if (instr.rd != 0) {
             registers[instr.rd] = result;
         }
-        int latency = cfg.getLatency(common.Opcode.ADD);
-        stats.cycles += latency;
-        if (latency > 1) {
-            stats.stalls += (latency - 1);
-        }
+        // Base cycle added; structural stalls handled by HazardUnit
+        stats.cycles += 1;
     }
 
     /**
-     * MUL: rd = rs1 * rs2, costs configured latency (default 3 cycles).
+     * MUL: rd = rs1 * rs2, base execution cycle.
      */
     private void executeMul(TraceInstruction instr) {
         int result = registers[instr.rs1] * registers[instr.rs2];
         if (instr.rd != 0) {
             registers[instr.rd] = result;
         }
-        int latency = cfg.getLatency(common.Opcode.MUL);
-        stats.cycles += latency;
-        if (latency > 1) {
-            stats.stalls += (latency - 1);
-        }
+        // Base cycle added; structural stalls handled by HazardUnit
+        stats.cycles += 1;
     }
 
 

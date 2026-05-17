@@ -5,10 +5,12 @@ import pipeline_registers.EX_MEM;
 import pipeline_registers.ID_EX;
 import pipeline_registers.IF_ID;
 
+import pipeline_registers.MEM_WB;
+
 // Detects hazards that require stalling (e.g., load-use, branch, or multi-cycle ops).
 public class HazardUnit {
 
-    public boolean needsStall(ID_EX idEx, IF_ID ifId, EX_MEM exMem, Config cfg) {
+    public boolean needsStall(ID_EX idEx, IF_ID ifId, EX_MEM exMem, MEM_WB memWb, Config cfg) {
         // Case 1: Multi-cycle op still executing in EX
         if (!idEx.isNop && idEx.latencyCyclesLeft > 0)
             return true;
@@ -50,6 +52,20 @@ public class HazardUnit {
                 }
             }
         }
+
+        // Case 5: No-forwarding RAW hazard — producer in WB (MEM/WB)
+        // Note: Assuming the register file supports internal forwarding (write first half,
+        // read second half), we do NOT stall if the producer is in the WB stage.
+        // If internal forwarding was not supported, we would stall here:
+        /*
+        if (!cfg.isForwardingEnabled()) {
+            if (!memWb.isNop && memWb.rd != 0 && memWb.opcode.writesBack()) {
+                if (memWb.rd == incomingRs1 || memWb.rd == incomingRs2) {
+                    return true;
+                }
+            }
+        }
+        */
 
         return false;
     }
