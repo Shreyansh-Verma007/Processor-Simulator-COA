@@ -59,14 +59,14 @@ public class ApiServer {
     // ── Utility ──────────────────────────────────────────────────────────────
 
     private static void addCors(HttpExchange ex) {
-        ex.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-        ex.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        ex.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
+        ex.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+        ex.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        ex.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
     }
 
     private static void sendJson(HttpExchange ex, int code, String json) throws IOException {
         addCors(ex);
-        ex.getResponseHeaders().add("Content-Type", "application/json; charset=utf-8");
+        ex.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
         ex.sendResponseHeaders(code, bytes.length);
         try (OutputStream os = ex.getResponseBody()) {
@@ -334,9 +334,8 @@ public class ApiServer {
             }
 
             byte[] bytes = Files.readAllBytes(file.toPath());
-            ex.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-            ex.getResponseHeaders().add("Content-Type", "application/octet-stream");
-            ex.getResponseHeaders().add("Content-Disposition", "attachment; filename=\"" + name + "\"");
+            ex.getResponseHeaders().set("Content-Type", "application/octet-stream");
+            ex.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"" + name + "\"");
             ex.sendResponseHeaders(200, bytes.length);
             try (OutputStream os = ex.getResponseBody()) {
                 os.write(bytes);
