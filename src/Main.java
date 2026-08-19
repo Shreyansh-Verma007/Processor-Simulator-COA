@@ -19,12 +19,17 @@ import java.util.List;
 //   Pipeline mode : java Main [input.asm]
 //   Single trace  : java Main --trace <trace_file>
 //   Batch traces  : java Main --trace-all <trace_dir>
+//   API server    : java Main --server
 public class Main {
     public static void main(String[] args) throws Exception {
         if (args.length >= 1 && args[0].equals("--trace")) {
             runTraceMode(args);
         } else if (args.length >= 1 && args[0].equals("--trace-all")) {
             runBatchTraceMode(args);
+        } else if (args.length >= 1 && args[0].equals("--server")) {
+            ApiServer.start();
+            // Keep the main thread alive
+            Thread.currentThread().join();
         } else {
             runPipelineMode(args);
         }
@@ -146,6 +151,13 @@ public class Main {
      * Usage: java Main [input.asm]
      */
     private static void runPipelineMode(String[] args) throws Exception {
+        runPipelinePublic(args);
+    }
+
+    /**
+     * Public entry point for pipeline mode — callable by ApiServer.
+     */
+    public static void runPipelinePublic(String[] args) throws Exception {
         String asmPath = (args.length > 0) ? args[0] : "input.asm";
 
         Config cfg = new Config();

@@ -1,0 +1,20 @@
+# Exclude web frontend from the backend Docker image
+web/
+web/node_modules/
+
+# Exclude IDE / docs / git
+.git/
+.gitignore
+docs/
+README.md
+Pipeline_Simulator_Report.md
+Meeting_Minute.md
+LICENSE
+
+# Exclude output files (generated at runtime)
+console.txt
+output.txt
+swap.txt
+traces_output/
+
+# Keep: src/, input.asm, phase3_traces/
