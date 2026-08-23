@@ -1,9 +1,9 @@
 === Simulation Stats ===
-Cycles             : 28106
-Stalls             : 25104
-Branch Flushes     : 242
-Instructions Retired: 2514
-IPC                : 0.089
+Cycles             : 1440
+Stalls             : 1289
+Branch Flushes     : 9
+Instructions Retired: 129
+IPC                : 0.090
 
 --- Cache Configuration ---
 L1D  : 4096B, 64B blocks, 1-way, 1-cycle, LRU
@@ -12,5 +12,5 @@ Forwarding    : enabled
 
 --- Cache Statistics ---
 L1I  : 0 hits, 0 misses, miss rate 0.000
-L1D  : 575 hits, 2 misses, miss rate 0.003
+L1D  : 31 hits, 1 misses, miss rate 0.031
 L2   : 0 hits, 0 misses, miss rate 0.000

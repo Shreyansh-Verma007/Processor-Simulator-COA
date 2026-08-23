@@ -43,35 +43,37 @@ HALT
   {
     label: 'Bubble Sort',
     code: `# Bubble Sort
-# Sorts an array [5, 3, 8, 1, 4] in ascending order
+# Sorts array [5, 3, 8, 1, 4] → [1, 3, 4, 5, 8]
+# Check Memory Dump tab for sorted output
 
 .data
 arr: .word 5, 3, 8, 1, 4
 
 .text
-    LI x10, 5        # n = 5
-    LI x9, 0         # base address = 0
+    LI x10, 5           # n = 5
+    LA x9, arr          # x9 = base address of array
+    ADDI x7, x10, -1    # limit = n - 1 (init BEFORE outer label!)
 
 outer:
-    LI x6, 0         # i = 0
-    ADDI x7, x10, -1 # limit = n - 1
+    LI x6, 0            # i = 0
 
 inner:
-    BGE x6, x7, next_outer   # if i >= limit, go to outer
-    SLL x5, x6, 2            # byte offset = i * 4
-    ADD x4, x9, x5           # addr_a = base + offset
-    ADDI x3, x4, 4           # addr_b = addr_a + 4
-    LW x1, 0(x4)             # x1 = arr[i]
-    LW x2, 0(x3)             # x2 = arr[i+1]
-    BLT x1, x2, no_swap      # if arr[i] < arr[i+1], skip
-    SW x2, 0(x4)             # arr[i] = arr[i+1]
-    SW x1, 0(x3)             # arr[i+1] = arr[i]
+    BGE x6, x7, next_outer  # if i >= limit, done with pass
+    ADD x5, x6, x6          # x5 = i * 2
+    ADD x5, x5, x5          # x5 = i * 4 (byte offset)
+    ADD x4, x9, x5          # addr_a = base + offset
+    ADDI x3, x4, 4          # addr_b = addr_a + 4
+    LW x1, 0(x4)            # x1 = arr[i]
+    LW x2, 0(x3)            # x2 = arr[i+1]
+    BLT x1, x2, no_swap     # if arr[i] < arr[i+1], skip swap
+    SW x2, 0(x4)            # arr[i] = arr[i+1]
+    SW x1, 0(x3)            # arr[i+1] = arr[i]
 no_swap:
-    ADDI x6, x6, 1           # i++
-    BLT x6, x7, inner        # if i < limit, repeat inner
+    ADDI x6, x6, 1          # i++
+    BLT x6, x7, inner       # if i < limit, continue inner
 next_outer:
-    ADDI x7, x7, -1          # limit--
-    BLT x0, x7, outer        # if limit > 0, repeat outer
+    ADDI x7, x7, -1         # limit--
+    BLT x0, x7, outer       # if limit > 0, do another pass
     ECALL
     HALT
 `,
