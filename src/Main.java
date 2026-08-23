@@ -162,9 +162,11 @@ public class Main {
     public static void runPipelinePublic(String asmPath) throws Exception {
 
         Config cfg = new Config();
-
         Processor processor = new Processor(cfg);
-        // Redirect pipeline output to console.txt
+
+        // Save original stdout so we can restore it after redirecting to console.txt
+        PrintStream origOut = System.out;
+
         try (PrintStream fileOut = new PrintStream(new FileOutputStream("console.txt"), true)) {
             System.setOut(fileOut);
 
@@ -184,7 +186,7 @@ public class Main {
                     totalBytes += item.bytes.length;
                 }
                 int dataWords = (totalBytes + 3) / 4;
-                
+
                 System.out.println("\n=== Memory Dump (Data Segment) ===");
                 for (int i = 0; i < dataWords; i++) {
                     int addr = startAddr + i * 4;
@@ -197,6 +199,9 @@ public class Main {
                     System.out.printf("0x%04X: %d\n", addr, val);
                 }
             }
+        } finally {
+            // Always restore stdout so the HTTP server keeps working after simulation
+            System.setOut(origOut);
         }
 
         // Write stats to output.txt via the shared StatsPrinter

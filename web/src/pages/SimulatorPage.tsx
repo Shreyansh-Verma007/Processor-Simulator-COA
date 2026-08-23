@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Save, RefreshCw, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
 import CodeEditor from '../components/CodeEditor';
 import RunButton from '../components/RunButton';
 import OutputTabs from '../components/OutputTabs';
@@ -245,17 +245,6 @@ export default function SimulatorPage() {
                 <option key={ex.label} value={ex.label}>{ex.label}</option>
               ))}
             </select>
-
-            <button
-              className="btn btn-ghost"
-              style={{ fontSize: 11, padding: '4px 8px' }}
-              onClick={() => sim.run(sim.asmCode)}
-              disabled={!sim.backendOnline || sim.status === 'running'}
-              title="Run simulation"
-            >
-              <Save size={11} />
-              Run
-            </button>
           </div>
           <div style={{ flex: 1, height: 0, overflow: 'hidden' }}>
             <CodeEditor
