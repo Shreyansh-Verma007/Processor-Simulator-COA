@@ -170,22 +170,34 @@ public class ApiServer {
                 tmpAsm = java.io.File.createTempFile("sim_", ".asm");
                 tmpAsm.deleteOnExit();
                 Files.write(tmpAsm.toPath(), asmCode.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } catch (IOException ioEx) {
+                // Genuine server-side infrastructure failure
+                running.set(false);
+                sendJson(ex, 500, "{\"error\":\"Server error: could not create temp file\"}");
+                return;
+            }
 
-                // Capture stderr for any error messages
-                ByteArrayOutputStream errBuf = new ByteArrayOutputStream();
-                PrintStream origErr = System.err;
-                System.setErr(new PrintStream(errBuf, true, java.nio.charset.StandardCharsets.UTF_8));
+            // Capture stderr for any diagnostic messages
+            ByteArrayOutputStream errBuf = new ByteArrayOutputStream();
+            PrintStream origErr = System.err;
+            System.setErr(new PrintStream(errBuf, true, java.nio.charset.StandardCharsets.UTF_8));
 
-                try {
-                    Main.runPipelinePublic(tmpAsm.getAbsolutePath());
-                    System.setErr(origErr);
-                    String errText = errBuf.toString(java.nio.charset.StandardCharsets.UTF_8);
-                    sendJson(ex, 200,
-                        "{\"ok\":true,\"stderr\":\"" + escapeJson(errText) + "\"}");
-                } catch (Exception e) {
-                    System.setErr(origErr);
-                    sendJson(ex, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
-                }
+            try {
+                Main.runPipelinePublic(tmpAsm.getAbsolutePath());
+                System.setErr(origErr);
+                String errText = errBuf.toString(java.nio.charset.StandardCharsets.UTF_8);
+                sendJson(ex, 200,
+                    "{\"ok\":true,\"stderr\":\"" + escapeJson(errText) + "\"}");
+
+            } catch (Exception simEx) {
+                // User-facing error: compilation error, unknown instruction, undefined label, etc.
+                // Return 200 so the frontend can display the message gracefully (not a browser error)
+                System.setErr(origErr);
+                String msg = simEx.getMessage();
+                if (msg == null || msg.isBlank()) msg = simEx.getClass().getSimpleName();
+                sendJson(ex, 200,
+                    "{\"ok\":false,\"error\":\"" + escapeJson(msg) + "\"}");
+
             } finally {
                 if (tmpAsm != null) tmpAsm.delete();
                 running.set(false);
