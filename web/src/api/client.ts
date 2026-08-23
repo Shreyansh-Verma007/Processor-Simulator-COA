@@ -32,8 +32,10 @@ export const saveAsm = async (content: string): Promise<void> => {
   await api.post('/asm', content, { headers: { 'Content-Type': 'text/plain' } });
 };
 
-export const runSimulation = async (): Promise<SimResult> => {
-  const { data } = await api.post('/run');
+export const runSimulation = async (asmCode: string): Promise<SimResult> => {
+  const { data } = await api.post('/run', asmCode, {
+    headers: { 'Content-Type': 'text/plain' },
+  });
   return data;
 };
 

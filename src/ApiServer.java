@@ -156,23 +156,38 @@ public class ApiServer {
                 return;
             }
 
-            // Capture stderr for any error messages
-            ByteArrayOutputStream errBuf = new ByteArrayOutputStream();
-            PrintStream origErr = System.err;
-            System.setErr(new PrintStream(errBuf, true, StandardCharsets.UTF_8));
+            // Read assembly code from POST body
+            String asmCode = readBody(ex);
+            if (asmCode == null || asmCode.isBlank()) {
+                running.set(false);
+                sendJson(ex, 400, "{\"error\":\"Empty assembly code\"}");
+                return;
+            }
 
+            // Write to a per-request temp file so concurrent users don't overwrite each other
+            java.io.File tmpAsm = null;
             try {
-                // Run pipeline mode — it writes console.txt, output.txt, swap.txt
-                Main.runPipelinePublic(new String[]{});
-                System.setErr(origErr);
+                tmpAsm = java.io.File.createTempFile("sim_", ".asm");
+                tmpAsm.deleteOnExit();
+                Files.write(tmpAsm.toPath(), asmCode.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
-                String errText = errBuf.toString(StandardCharsets.UTF_8);
-                sendJson(ex, 200,
-                    "{\"ok\":true,\"stderr\":\"" + escapeJson(errText) + "\"}");
-            } catch (Exception e) {
-                System.setErr(origErr);
-                sendJson(ex, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+                // Capture stderr for any error messages
+                ByteArrayOutputStream errBuf = new ByteArrayOutputStream();
+                PrintStream origErr = System.err;
+                System.setErr(new PrintStream(errBuf, true, java.nio.charset.StandardCharsets.UTF_8));
+
+                try {
+                    Main.runPipelinePublic(tmpAsm.getAbsolutePath());
+                    System.setErr(origErr);
+                    String errText = errBuf.toString(java.nio.charset.StandardCharsets.UTF_8);
+                    sendJson(ex, 200,
+                        "{\"ok\":true,\"stderr\":\"" + escapeJson(errText) + "\"}");
+                } catch (Exception e) {
+                    System.setErr(origErr);
+                    sendJson(ex, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+                }
             } finally {
+                if (tmpAsm != null) tmpAsm.delete();
                 running.set(false);
             }
         }

@@ -9,17 +9,87 @@ import SwapPanel from '../components/SwapPanel';
 import PipelineDiagram from '../components/PipelineDiagram';
 import { useSimulator } from '../hooks/useSimulator';
 
+const EXAMPLES: { label: string; code: string }[] = [
+  {
+    label: 'Simple Add',
+    code: `# Simple Add Example
+# Computes x3 = x1 + x2
+
+.text
+LI x1, 10       # x1 = 10
+LI x2, 25       # x2 = 25
+ADD x3, x1, x2  # x3 = x1 + x2 = 35
+ECALL           # dump registers
+HALT
+`,
+  },
+  {
+    label: 'Load & Store',
+    code: `# Load & Store Example
+# Stores a value to memory, loads it back, and doubles it
+
+.data
+value: .word 42
+
+.text
+LI x1, 42       # x1 = 42
+SW x1, 0(x0)    # store 42 at address 0
+LW x2, 0(x0)    # load it back into x2
+ADD x3, x2, x2  # x3 = x2 + x2 = 84 (double)
+ECALL
+HALT
+`,
+  },
+  {
+    label: 'Bubble Sort',
+    code: `# Bubble Sort
+# Sorts an array [5, 3, 8, 1, 4] in ascending order
+
+.data
+arr: .word 5, 3, 8, 1, 4
+
+.text
+    LI x10, 5        # n = 5
+    LI x9, 0         # base address = 0
+
+outer:
+    LI x6, 0         # i = 0
+    ADDI x7, x10, -1 # limit = n - 1
+
+inner:
+    BGE x6, x7, next_outer   # if i >= limit, go to outer
+    SLL x5, x6, 2            # byte offset = i * 4
+    ADD x4, x9, x5           # addr_a = base + offset
+    ADDI x3, x4, 4           # addr_b = addr_a + 4
+    LW x1, 0(x4)             # x1 = arr[i]
+    LW x2, 0(x3)             # x2 = arr[i+1]
+    BLT x1, x2, no_swap      # if arr[i] < arr[i+1], skip
+    SW x2, 0(x4)             # arr[i] = arr[i+1]
+    SW x1, 0(x3)             # arr[i+1] = arr[i]
+no_swap:
+    ADDI x6, x6, 1           # i++
+    BLT x6, x7, inner        # if i < limit, repeat inner
+next_outer:
+    ADDI x7, x7, -1          # limit--
+    BLT x0, x7, outer        # if limit > 0, repeat outer
+    ECALL
+    HALT
+`,
+  },
+];
+
+const DEFAULT_CODE = EXAMPLES[0].code;
+
 export default function SimulatorPage() {
   const sim = useSimulator();
   const [activeTab, setActiveTab] = useState('console');
   const [editorWidth, setEditorWidth] = useState(50); // percent
 
   useEffect(() => {
+    // Initialise editor with a local default — no server fetch needed
+    sim.setAsmCode(DEFAULT_CODE);
     sim.checkBackend().then(online => {
-      if (online) {
-        sim.loadAsm();
-        sim.loadOutputFiles();
-      }
+      if (online) sim.loadOutputFiles();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -28,6 +98,12 @@ export default function SimulatorPage() {
 
   const handleRun = () => {
     sim.run(sim.asmCode);
+  };
+
+  const handleExampleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const ex = EXAMPLES.find(x => x.label === e.target.value);
+    if (ex) sim.setAsmCode(ex.code);
+    e.target.value = '';
   };
 
   return (
@@ -149,15 +225,36 @@ export default function SimulatorPage() {
               input.asm
             </span>
             <div style={{ flex: 1 }} />
+
+            {/* Examples dropdown */}
+            <select
+              onChange={handleExampleSelect}
+              defaultValue=""
+              style={{
+                fontSize: 11,
+                padding: '4px 8px',
+                borderRadius: 4,
+                border: '1px solid var(--border)',
+                background: 'var(--bg-surface)',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="" disabled>Examples ▾</option>
+              {EXAMPLES.map(ex => (
+                <option key={ex.label} value={ex.label}>{ex.label}</option>
+              ))}
+            </select>
+
             <button
               className="btn btn-ghost"
               style={{ fontSize: 11, padding: '4px 8px' }}
               onClick={() => sim.run(sim.asmCode)}
               disabled={!sim.backendOnline || sim.status === 'running'}
-              title="Save and run"
+              title="Run simulation"
             >
               <Save size={11} />
-              Save
+              Run
             </button>
           </div>
           <div style={{ flex: 1, height: 0, overflow: 'hidden' }}>

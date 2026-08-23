@@ -151,14 +151,15 @@ public class Main {
      * Usage: java Main [input.asm]
      */
     private static void runPipelineMode(String[] args) throws Exception {
-        runPipelinePublic(args);
+        String asmPath = (args.length > 0) ? args[0] : "input.asm";
+        runPipelinePublic(asmPath);
     }
 
     /**
      * Public entry point for pipeline mode — callable by ApiServer.
+     * Accepts an explicit ASM file path so each API request uses its own temp file.
      */
-    public static void runPipelinePublic(String[] args) throws Exception {
-        String asmPath = (args.length > 0) ? args[0] : "input.asm";
+    public static void runPipelinePublic(String asmPath) throws Exception {
 
         Config cfg = new Config();
 

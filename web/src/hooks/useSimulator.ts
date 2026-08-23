@@ -1,8 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import {
-  getAsm, saveAsm, runSimulation,
+  getStatus, runSimulation,
   getConsole, getOutput, getSwap,
-  getStatus,
 } from '../api/client';
 
 export type SimStatus = 'idle' | 'running' | 'success' | 'error' | 'offline';
@@ -44,15 +43,9 @@ export function useSimulator() {
   }, []);
 
   const loadAsm = useCallback(async () => {
-    const online = await checkBackend();
-    if (!online) return;
-    try {
-      const code = await getAsm();
-      setState(s => ({ ...s, asmCode: code }));
-    } catch {
-      // Silently ignore — editor starts empty
-    }
-  }, [checkBackend]);
+    // No longer fetches from server — editor is initialised with a local default.
+    // Kept for API compatibility with SimulatorPage.
+  }, []);
 
   const loadOutputFiles = useCallback(async () => {
     const [con, out, swp] = await Promise.all([
@@ -74,11 +67,8 @@ export function useSimulator() {
     startTimeRef.current = Date.now();
 
     try {
-      // Save ASM first
-      await saveAsm(asmCode);
-
-      // Run simulation (blocks until done)
-      const result = await runSimulation();
+      // Send assembly code directly in the POST body — no shared server-side file
+      const result = await runSimulation(asmCode);
 
       const elapsed = Date.now() - startTimeRef.current;
 
