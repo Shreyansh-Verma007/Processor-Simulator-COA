@@ -176,50 +176,6 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* How to use */}
-        <section className="glass-card" style={{ padding: 20 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Code2 size={14} color="var(--accent-cyan)" />
-            How to Use
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[
-              { step: '1', text: 'Compile the Java backend:', code: 'javac -d out src/**/*.java src/*.java' },
-              { step: '2', text: 'Start the API server:', code: 'java -cp out Main --server' },
-              { step: '3', text: 'Start the frontend dev server:', code: 'cd web && npm run dev' },
-              { step: '4', text: 'Open the simulator in your browser:', code: 'http://localhost:5173' },
-            ].map(({ step, text, code }) => (
-              <div key={step} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                <div style={{
-                  width: 24, height: 24, borderRadius: '50%',
-                  background: 'rgba(0,245,212,0.15)',
-                  border: '1px solid rgba(0,245,212,0.4)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, fontWeight: 700, color: 'var(--accent-cyan)',
-                  flexShrink: 0,
-                }}>
-                  {step}
-                </div>
-                <div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{text}</div>
-                  <code style={{
-                    display: 'block',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 12,
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 4,
-                    padding: '6px 10px',
-                    color: 'var(--accent-green)',
-                  }}>
-                    {code}
-                  </code>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
       </div>
     </div>
   );

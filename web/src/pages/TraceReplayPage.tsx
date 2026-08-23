@@ -292,9 +292,17 @@ export default function TraceReplayPage() {
         setErrorMsg(result.error ?? 'Unknown error');
         setRunState('error');
       }
-    } catch (err) {
+    } catch (err: unknown) {
       setElapsed(Date.now() - t0);
-      setErrorMsg(err instanceof Error ? err.message : String(err));
+      // Provide friendly messages for common network failures
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('timeout') || msg.includes('ECONNABORTED')) {
+        setErrorMsg('Simulation timed out — the trace file may be very large. Try again or use a smaller trace.');
+      } else if (msg.includes('Network Error') || msg.includes('ERR_NETWORK')) {
+        setErrorMsg('Network error — check that the backend server is running and reachable.');
+      } else {
+        setErrorMsg(msg);
+      }
       setRunState('error');
     }
   }, []);
@@ -307,13 +315,20 @@ export default function TraceReplayPage() {
     setErrorMsg('');
     setResultRaw('');
     const t0 = Date.now();
+    // AbortController lets us cancel the fetch if it hangs too long
+    const fetchAbort = new AbortController();
+    const fetchTimeout = setTimeout(() => fetchAbort.abort(), 60_000); // 60s to download
     try {
       // Fetch the file bytes via our proxy, then pass as a File object
       const apiBase = import.meta.env.VITE_API_URL
         ? `${import.meta.env.VITE_API_URL}/api`
         : '/api';
-      const resp = await fetch(`${apiBase}/trace-file?name=${encodeURIComponent(traceName)}`);
-      if (!resp.ok) throw new Error(`Failed to fetch ${traceName}`);
+      const resp = await fetch(
+        `${apiBase}/trace-file?name=${encodeURIComponent(traceName)}`,
+        { signal: fetchAbort.signal },
+      );
+      clearTimeout(fetchTimeout);
+      if (!resp.ok) throw new Error(`Server returned ${resp.status} while fetching ${traceName}`);
       const blob = await resp.blob();
       const file = new File([blob], traceName);
       const result = await runTrace(file);
@@ -325,9 +340,20 @@ export default function TraceReplayPage() {
         setErrorMsg(result.error ?? 'Unknown error');
         setRunState('error');
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      clearTimeout(fetchTimeout);
       setElapsed(Date.now() - t0);
-      setErrorMsg(err instanceof Error ? err.message : String(err));
+      // Provide friendly messages for common network failures
+      const msg = err instanceof Error ? err.message : String(err);
+      if (err instanceof Error && err.name === 'AbortError') {
+        setErrorMsg('Download timed out after 60 seconds — the server may be unreachable. Try uploading the file manually.');
+      } else if (msg.includes('timeout') || msg.includes('ECONNABORTED')) {
+        setErrorMsg('Simulation timed out — the trace file may be very large. Try again or use a smaller trace.');
+      } else if (msg.includes('Network Error') || msg.includes('ERR_NETWORK')) {
+        setErrorMsg('Network error — check that the backend server is running and reachable.');
+      } else {
+        setErrorMsg(msg);
+      }
       setRunState('error');
     }
   }, []);
