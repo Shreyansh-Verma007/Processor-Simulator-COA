@@ -7,6 +7,8 @@ import ConsolePanel from '../components/ConsolePanel';
 import StatsPanel from '../components/StatsPanel';
 import SwapPanel from '../components/SwapPanel';
 import PipelineDiagram from '../components/PipelineDiagram';
+import MemoryPanel from '../components/MemoryPanel';
+import ConfigPanel, { SimConfig, DEFAULT_CONFIG } from '../components/ConfigPanel';
 import { useSimulator } from '../hooks/useSimulator';
 
 const EXAMPLES: { label: string; code: string }[] = [
@@ -78,6 +80,56 @@ next_outer:
     HALT
 `,
   },
+  {
+    label: 'All Instructions Overview',
+    code: `# ALL SUPPORTED INSTRUCTIONS
+# This snippet doesn't do anything useful.
+# It simply lists all supported instructions and their usage syntax.
+
+.data
+my_var: .word 100
+my_byte: .byte 0x1A
+
+.text
+# ── Pseudo-Instructions ─────────────────────────────
+NOP                     # Do nothing (ADDI x0, x0, 0)
+LI x1, 42               # Load Immediate: x1 = 42
+LA x2, my_var           # Load Address: x2 = address of 'my_var'
+MV x3, x1               # Move: x3 = x1 (ADDI x3, x1, 0)
+
+# ── Memory Access ───────────────────────────────────
+LW x4, 0(x2)            # Load Word: x4 = Memory[x2 + 0] (32-bit)
+SW x4, 4(x2)            # Store Word: Memory[x2 + 4] = x4 (32-bit)
+LB x5, 0(x2)            # Load Byte: x5 = Memory[x2 + 0] (8-bit)
+SB x5, 5(x2)            # Store Byte: Memory[x2 + 5] = x5 (8-bit)
+
+# ── Arithmetic ──────────────────────────────────────
+ADDI x6, x0, 15         # Add Immediate: x6 = x0 + 15
+ADD x7, x6, x1          # Add: x7 = x6 + x1
+SUB x8, x7, x6          # Subtract: x8 = x7 - x6
+MUL x9, x6, x1          # Multiply: x9 = x6 * x1
+DIV x10, x9, x6         # Divide: x10 = x9 / x6
+
+# ── Logical & Bitwise ───────────────────────────────
+AND x11, x10, x1        # Bitwise AND: x11 = x10 & x1
+OR x12, x10, x1         # Bitwise OR: x12 = x10 | x1
+XOR x13, x10, x1        # Bitwise XOR: x13 = x10 ^ x1
+SLL x14, x13, x6        # Shift Left Logical: x14 = x13 << x6
+SRL x15, x13, x6        # Shift Right Logical: x15 = x13 >>> x6
+
+# ── Control Flow (Branches & Jumps) ─────────────────
+BEQ x1, x1, skip        # Branch if Equal: if x1 == x1, goto 'skip'
+BNE x1, x2, skip        # Branch if Not Equal: if x1 != x2, goto 'skip'
+BLT x0, x1, skip        # Branch if Less Than: if x0 < x1, goto 'skip'
+BGE x1, x0, skip        # Branch if Greater/Equal: if x1 >= x0, goto 'skip'
+JAL x31, skip           # Jump And Link: x31 = PC+4, goto 'skip'
+
+skip:
+# ── System / Control ────────────────────────────────
+ECALL                   # Print all registers to Console Output
+HALT                    # Stop simulation
+`,
+  },
 ];
 
 const DEFAULT_CODE = EXAMPLES[0].code;
@@ -86,6 +138,8 @@ export default function SimulatorPage() {
   const sim = useSimulator();
   const [activeTab, setActiveTab] = useState('console');
   const [editorWidth, setEditorWidth] = useState(50); // percent
+  const [simConfig, setSimConfig] = useState<SimConfig>({ ...DEFAULT_CONFIG });
+  const configModified = JSON.stringify(simConfig) !== JSON.stringify(DEFAULT_CONFIG);
 
   useEffect(() => {
     // Initialise editor with a local default — no server fetch needed
@@ -99,7 +153,7 @@ export default function SimulatorPage() {
   const hasData = !!(sim.consoleContent || sim.outputContent || sim.swapContent);
 
   const handleRun = () => {
-    sim.run(sim.asmCode);
+    sim.run(sim.asmCode, simConfig);
   };
 
   const handleExampleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -294,11 +348,14 @@ export default function SimulatorPage() {
             activeTab={activeTab}
             onTabChange={setActiveTab}
             hasData={hasData}
+            configModified={configModified}
           />
           <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
             {activeTab === 'console' && <ConsolePanel content={sim.consoleContent} />}
             {activeTab === 'stats'   && <StatsPanel   content={sim.outputContent} />}
+            {activeTab === 'memory'  && <MemoryPanel  content={sim.consoleContent} />}
             {activeTab === 'swap'    && <SwapPanel    content={sim.swapContent} />}
+            {activeTab === 'config'  && <ConfigPanel  config={simConfig} onChange={setSimConfig} />}
             {activeTab === 'raw'     && (
               <RawView
                 consoleContent={sim.consoleContent}

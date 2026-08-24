@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class ApiServer {
 
-    // Heroku sets PORT dynamically; fall back to 8080 for local dev
+    // Railway sets PORT dynamically; fall back to 8080 for local dev
     private static final int PORT = System.getenv("PORT") != null
             ? Integer.parseInt(System.getenv("PORT"))
             : 8080;
@@ -156,6 +156,56 @@ public class ApiServer {
                 return;
             }
 
+            // ── Parse config from query params ────────────────────────────
+            java.util.Map<String, String> params = parseQuery(ex.getRequestURI().getQuery());
+
+            common.Config cfg = new common.Config();
+            try {
+                // Pipeline
+                if (params.containsKey("forwarding"))
+                    cfg.setForwardingEnabled(Boolean.parseBoolean(params.get("forwarding")));
+                if (params.containsKey("mulLatency"))
+                    cfg.setLatency(common.Opcode.MUL, Integer.parseInt(params.get("mulLatency")));
+                if (params.containsKey("divLatency"))
+                    cfg.setLatency(common.Opcode.DIV, Integer.parseInt(params.get("divLatency")));
+
+                // Memory
+                if (params.containsKey("memLatency"))
+                    cfg.setMainMemoryLatency(Integer.parseInt(params.get("memLatency")));
+
+                // L1D
+                int l1dSize    = intParam(params, "l1dSize",    4096);
+                int l1dBlock   = intParam(params, "l1dBlock",   64);
+                int l1dAssoc   = intParam(params, "l1dAssoc",   1);
+                int l1dLatency = intParam(params, "l1dLatency", 1);
+                cfg.setL1D(new cache.CacheConfig(l1dSize, l1dBlock, l1dAssoc, l1dLatency,
+                        cache.CacheConfig.ReplacementPolicy.LRU));
+
+                // L1I (disabled by default)
+                boolean l1iEnabled = Boolean.parseBoolean(params.getOrDefault("l1iEnabled", "false"));
+                if (l1iEnabled) {
+                    cfg.setL1I(new cache.CacheConfig(4096, 64, 1, 1,
+                            cache.CacheConfig.ReplacementPolicy.LRU));
+                } else {
+                    cfg.setL1I(null);
+                }
+
+                // L2 (disabled by default)
+                boolean l2Enabled = Boolean.parseBoolean(params.getOrDefault("l2Enabled", "false"));
+                if (l2Enabled) {
+                    int l2Size  = intParam(params, "l2Size",  16384);
+                    int l2Assoc = intParam(params, "l2Assoc", 4);
+                    cfg.setL2(new cache.CacheConfig(l2Size, 64, l2Assoc, 10,
+                            cache.CacheConfig.ReplacementPolicy.LRU));
+                } else {
+                    cfg.setL2(null);
+                }
+            } catch (Exception cfgEx) {
+                running.set(false);
+                sendJson(ex, 400, "{\"error\":\"Invalid config param: " + escapeJson(cfgEx.getMessage()) + "\"}");
+                return;
+            }
+
             // Read assembly code from POST body
             String asmCode = readBody(ex);
             if (asmCode == null || asmCode.isBlank()) {
@@ -171,7 +221,6 @@ public class ApiServer {
                 tmpAsm.deleteOnExit();
                 Files.write(tmpAsm.toPath(), asmCode.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             } catch (IOException ioEx) {
-                // Genuine server-side infrastructure failure
                 running.set(false);
                 sendJson(ex, 500, "{\"error\":\"Server error: could not create temp file\"}");
                 return;
@@ -183,15 +232,13 @@ public class ApiServer {
             System.setErr(new PrintStream(errBuf, true, java.nio.charset.StandardCharsets.UTF_8));
 
             try {
-                Main.runPipelinePublic(tmpAsm.getAbsolutePath());
+                Main.runPipelinePublic(tmpAsm.getAbsolutePath(), cfg);
                 System.setErr(origErr);
                 String errText = errBuf.toString(java.nio.charset.StandardCharsets.UTF_8);
                 sendJson(ex, 200,
                     "{\"ok\":true,\"stderr\":\"" + escapeJson(errText) + "\"}");
 
             } catch (Exception simEx) {
-                // User-facing error: compilation error, unknown instruction, undefined label, etc.
-                // Return 200 so the frontend can display the message gracefully (not a browser error)
                 System.setErr(origErr);
                 String msg = simEx.getMessage();
                 if (msg == null || msg.isBlank()) msg = simEx.getClass().getSimpleName();
@@ -202,6 +249,27 @@ public class ApiServer {
                 if (tmpAsm != null) tmpAsm.delete();
                 running.set(false);
             }
+        }
+
+        /** Parse "key=val&key2=val2" query string into a map. */
+        private static java.util.Map<String, String> parseQuery(String query) {
+            java.util.Map<String, String> map = new java.util.HashMap<>();
+            if (query == null || query.isBlank()) return map;
+            for (String part : query.split("&")) {
+                int eq = part.indexOf('=');
+                if (eq > 0) {
+                    String key = java.net.URLDecoder.decode(part.substring(0, eq), java.nio.charset.StandardCharsets.UTF_8);
+                    String val = java.net.URLDecoder.decode(part.substring(eq + 1), java.nio.charset.StandardCharsets.UTF_8);
+                    map.put(key, val);
+                }
+            }
+            return map;
+        }
+
+        private static int intParam(java.util.Map<String, String> params, String key, int def) {
+            String v = params.get(key);
+            if (v == null) return def;
+            try { return Integer.parseInt(v); } catch (NumberFormatException e) { return def; }
         }
     }
 

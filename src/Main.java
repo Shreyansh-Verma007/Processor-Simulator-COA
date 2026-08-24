@@ -158,10 +158,18 @@ public class Main {
     /**
      * Public entry point for pipeline mode — callable by ApiServer.
      * Accepts an explicit ASM file path so each API request uses its own temp file.
+     * Uses default Config (backward-compatible).
      */
     public static void runPipelinePublic(String asmPath) throws Exception {
+        runPipelinePublic(asmPath, new Config());
+    }
 
-        Config cfg = new Config();
+    /**
+     * Public entry point for pipeline mode with a custom Config.
+     * Called by ApiServer when the frontend sends config query params.
+     */
+    public static void runPipelinePublic(String asmPath, Config cfg) throws Exception {
+
         Processor processor = new Processor(cfg);
 
         // Save original stdout so we can restore it after redirecting to console.txt

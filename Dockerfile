@@ -23,7 +23,7 @@ COPY --from=builder /app/out ./out
 COPY input.asm ./
 COPY phase3_traces/ ./phase3_traces/
 
-# Heroku dynamically assigns PORT — ApiServer reads it from env
+# Railway dynamically assigns PORT — ApiServer reads it from env
 # Default is 8080 for local Docker runs
 EXPOSE 8080
 

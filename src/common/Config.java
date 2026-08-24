@@ -159,5 +159,30 @@ public class Config {
         return vmReplacementPolicy;
     }
 
+    // ── Setters (used by ApiServer to apply frontend config) ─────────────
+
+    public void setForwardingEnabled(boolean enabled) {
+        this.forwardingEnabled = enabled;
+    }
+
+    public void setL1I(CacheConfig cfg) {
+        this.l1i = cfg;
+    }
+
+    public void setL1D(CacheConfig cfg) {
+        this.l1d = cfg;
+    }
+
+    public void setL2(CacheConfig cfg) {
+        this.l2 = cfg;
+    }
+
+    public void setMainMemoryLatency(int latency) {
+        this.mainMemoryLatency = latency;
+    }
+
+    public void setLatency(Opcode op, int cycles) {
+        this.latencies.put(op, cycles);
+    }
 
 }

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import {
   getStatus, runSimulation,
   getConsole, getOutput, getSwap,
+  type SimConfig,
 } from '../api/client';
 
 export type SimStatus = 'idle' | 'running' | 'success' | 'error' | 'offline';
@@ -59,7 +60,7 @@ export function useSimulator() {
     }));
   }, []);
 
-  const run = useCallback(async (asmCode: string) => {
+  const run = useCallback(async (asmCode: string, cfg?: SimConfig) => {
     const online = await checkBackend();
     if (!online) return;
 
@@ -67,8 +68,8 @@ export function useSimulator() {
     startTimeRef.current = Date.now();
 
     try {
-      // Send assembly code directly in the POST body — no shared server-side file
-      const result = await runSimulation(asmCode);
+      // Send assembly code + config to the backend
+      const result = await runSimulation(asmCode, cfg);
 
       const elapsed = Date.now() - startTimeRef.current;
 
