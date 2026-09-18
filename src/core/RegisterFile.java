@@ -23,4 +23,14 @@ public class RegisterFile {
             System.out.printf("  x%-2d = %d%n", i, (i == 0) ? 0 : regs[i]);
         }
     }
+
+    /** Returns a copy of all 32 register values for external inspection. */
+    public int[] getAll() {
+        int[] copy = new int[32];
+        copy[0] = 0; // x0 is always 0
+        for (int i = 1; i < 32; i++) {
+            copy[i] = regs[i];
+        }
+        return copy;
+    }
 }

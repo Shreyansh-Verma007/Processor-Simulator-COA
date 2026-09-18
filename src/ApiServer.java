@@ -34,6 +34,7 @@ public class ApiServer {
             ? Integer.parseInt(System.getenv("PORT"))
             : 8080;
     private static final AtomicBoolean running = new AtomicBoolean(false);
+    private static volatile step.StepSession stepSession = null;
 
     public static void start() throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
@@ -47,6 +48,8 @@ public class ApiServer {
         server.createContext("/api/trace", new TraceHandler());
         server.createContext("/api/traces", new TracesListHandler());
         server.createContext("/api/trace-file", new TraceFileHandler());
+        server.createContext("/api/step/init", new StepInitHandler());
+        server.createContext("/api/step/next", new StepNextHandler());
 
         server.setExecutor(Executors.newCachedThreadPool());
         server.start();
@@ -96,6 +99,29 @@ public class ApiServer {
         } catch (IOException e) {
             return "";
         }
+    }
+
+    // ── Helper parsing methods ───────────────────────────────────────────────
+
+    /** Parse "key=val&key2=val2" query string into a map. */
+    private static java.util.Map<String, String> parseQuery(String query) {
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        if (query == null || query.isBlank()) return map;
+        for (String part : query.split("&")) {
+            int eq = part.indexOf('=');
+            if (eq > 0) {
+                String key = java.net.URLDecoder.decode(part.substring(0, eq), java.nio.charset.StandardCharsets.UTF_8);
+                String val = java.net.URLDecoder.decode(part.substring(eq + 1), java.nio.charset.StandardCharsets.UTF_8);
+                map.put(key, val);
+            }
+        }
+        return map;
+    }
+
+    private static int intParam(java.util.Map<String, String> params, String key, int def) {
+        String v = params.get(key);
+        if (v == null) return def;
+        try { return Integer.parseInt(v); } catch (NumberFormatException e) { return def; }
     }
 
     // ── Handlers ─────────────────────────────────────────────────────────────
@@ -159,52 +185,15 @@ public class ApiServer {
             // ── Parse config from query params ────────────────────────────
             java.util.Map<String, String> params = parseQuery(ex.getRequestURI().getQuery());
 
-            common.Config cfg = new common.Config();
+            common.Config cfg;
             try {
-                // Pipeline
-                if (params.containsKey("forwarding"))
-                    cfg.setForwardingEnabled(Boolean.parseBoolean(params.get("forwarding")));
-                if (params.containsKey("mulLatency"))
-                    cfg.setLatency(common.Opcode.MUL, Integer.parseInt(params.get("mulLatency")));
-                if (params.containsKey("divLatency"))
-                    cfg.setLatency(common.Opcode.DIV, Integer.parseInt(params.get("divLatency")));
-
-                // Memory
-                if (params.containsKey("memLatency"))
-                    cfg.setMainMemoryLatency(Integer.parseInt(params.get("memLatency")));
-
-                // L1D
-                int l1dSize    = intParam(params, "l1dSize",    4096);
-                int l1dBlock   = intParam(params, "l1dBlock",   64);
-                int l1dAssoc   = intParam(params, "l1dAssoc",   1);
-                int l1dLatency = intParam(params, "l1dLatency", 1);
-                cfg.setL1D(new cache.CacheConfig(l1dSize, l1dBlock, l1dAssoc, l1dLatency,
-                        cache.CacheConfig.ReplacementPolicy.LRU));
-
-                // L1I (disabled by default)
-                boolean l1iEnabled = Boolean.parseBoolean(params.getOrDefault("l1iEnabled", "false"));
-                if (l1iEnabled) {
-                    cfg.setL1I(new cache.CacheConfig(4096, 64, 1, 1,
-                            cache.CacheConfig.ReplacementPolicy.LRU));
-                } else {
-                    cfg.setL1I(null);
-                }
-
-                // L2 (disabled by default)
-                boolean l2Enabled = Boolean.parseBoolean(params.getOrDefault("l2Enabled", "false"));
-                if (l2Enabled) {
-                    int l2Size  = intParam(params, "l2Size",  16384);
-                    int l2Assoc = intParam(params, "l2Assoc", 4);
-                    cfg.setL2(new cache.CacheConfig(l2Size, 64, l2Assoc, 10,
-                            cache.CacheConfig.ReplacementPolicy.LRU));
-                } else {
-                    cfg.setL2(null);
-                }
+                cfg = parseConfig(params);
             } catch (Exception cfgEx) {
                 running.set(false);
                 sendJson(ex, 400, "{\"error\":\"Invalid config param: " + escapeJson(cfgEx.getMessage()) + "\"}");
                 return;
             }
+
 
             // Read assembly code from POST body
             String asmCode = readBody(ex);
@@ -251,26 +240,6 @@ public class ApiServer {
             }
         }
 
-        /** Parse "key=val&key2=val2" query string into a map. */
-        private static java.util.Map<String, String> parseQuery(String query) {
-            java.util.Map<String, String> map = new java.util.HashMap<>();
-            if (query == null || query.isBlank()) return map;
-            for (String part : query.split("&")) {
-                int eq = part.indexOf('=');
-                if (eq > 0) {
-                    String key = java.net.URLDecoder.decode(part.substring(0, eq), java.nio.charset.StandardCharsets.UTF_8);
-                    String val = java.net.URLDecoder.decode(part.substring(eq + 1), java.nio.charset.StandardCharsets.UTF_8);
-                    map.put(key, val);
-                }
-            }
-            return map;
-        }
-
-        private static int intParam(java.util.Map<String, String> params, String key, int def) {
-            String v = params.get(key);
-            if (v == null) return def;
-            try { return Integer.parseInt(v); } catch (NumberFormatException e) { return def; }
-        }
     }
 
     static class FileHandler implements HttpHandler {
@@ -435,6 +404,177 @@ public class ApiServer {
             try (OutputStream os = ex.getResponseBody()) {
                 os.write(bytes);
             }
+        }
+    }
+
+    // ── Step Debugger Handlers ───────────────────────────────────────────────
+
+    private static common.Config parseConfig(java.util.Map<String, String> params) {
+        common.Config cfg = new common.Config();
+        
+        // Pipeline
+        if (params.containsKey("forwarding"))
+            cfg.setForwardingEnabled(Boolean.parseBoolean(params.get("forwarding")));
+        if (params.containsKey("mulLatency"))
+            cfg.setLatency(common.Opcode.MUL, Integer.parseInt(params.get("mulLatency")));
+        if (params.containsKey("divLatency"))
+            cfg.setLatency(common.Opcode.DIV, Integer.parseInt(params.get("divLatency")));
+
+        // Memory
+        if (params.containsKey("memLatency"))
+            cfg.setMainMemoryLatency(Integer.parseInt(params.get("memLatency")));
+
+        // L1D
+        boolean l1dEnabled = Boolean.parseBoolean(params.getOrDefault("l1dEnabled", "true"));
+        if (l1dEnabled) {
+            int l1dSize    = intParam(params, "l1dSize",    4096);
+            int l1dBlock   = intParam(params, "l1dBlock",   64);
+            int l1dAssoc   = intParam(params, "l1dAssoc",   1);
+            int l1dLatency = intParam(params, "l1dLatency", 1);
+            cfg.setL1D(new cache.CacheConfig(l1dSize, l1dBlock, l1dAssoc, l1dLatency,
+                    cache.CacheConfig.ReplacementPolicy.LRU));
+        } else {
+            cfg.setL1D(null);
+        }
+
+        // L1I (disabled by default)
+        boolean l1iEnabled = Boolean.parseBoolean(params.getOrDefault("l1iEnabled", "false"));
+        if (l1iEnabled) {
+            cfg.setL1I(new cache.CacheConfig(4096, 64, 1, 1,
+                    cache.CacheConfig.ReplacementPolicy.LRU));
+        } else {
+            cfg.setL1I(null);
+        }
+
+        // L2 (disabled by default)
+        boolean l2Enabled = Boolean.parseBoolean(params.getOrDefault("l2Enabled", "false"));
+        if (l2Enabled) {
+            int l2Size  = intParam(params, "l2Size",  16384);
+            int l2Assoc = intParam(params, "l2Assoc", 4);
+            cfg.setL2(new cache.CacheConfig(l2Size, 64, l2Assoc, 10,
+                    cache.CacheConfig.ReplacementPolicy.LRU));
+        } else {
+            cfg.setL2(null);
+        }
+
+        return cfg;
+    }
+
+    /**
+     * POST /api/step/init
+     * Body: assembly code text
+     * Compiles the code and initializes a new StepSession.
+     * Returns the first CycleSnapshot (cycle 0, empty pipeline).
+     */
+    static class StepInitHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange ex) throws IOException {
+            addCors(ex);
+            if ("OPTIONS".equals(ex.getRequestMethod())) {
+                ex.sendResponseHeaders(204, -1);
+                return;
+            }
+            if (!"POST".equals(ex.getRequestMethod())) {
+                sendJson(ex, 405, "{\"error\":\"POST required\"}");
+                return;
+            }
+            if (!running.compareAndSet(false, true)) {
+                sendJson(ex, 409, "{\"error\":\"Simulation already running\"}");
+                return;
+            }
+
+            try {
+                String asmCode = readBody(ex);
+                if (asmCode == null || asmCode.isBlank()) {
+                    sendJson(ex, 400, "{\"error\":\"Empty assembly code\"}");
+                    return;
+                }
+
+                // Write to a temp file for the compiler
+                java.io.File tmpAsm = java.io.File.createTempFile("step_", ".asm");
+                tmpAsm.deleteOnExit();
+                Files.write(tmpAsm.toPath(), asmCode.getBytes(StandardCharsets.UTF_8));
+
+                // Compile
+                compiler.CompilationResult result = new compiler.Compiler().compile(tmpAsm.getAbsolutePath());
+                tmpAsm.delete();
+
+                // Build hardware
+                java.util.Map<String, String> params = parseQuery(ex.getRequestURI().getQuery());
+                common.Config cfg = parseConfig(params);
+                core.Memory mem = new core.Memory();
+                core.RegisterFile rf = new core.RegisterFile();
+                core.Stats stats = new core.Stats();
+
+                if (result.getDataItems() != null && !result.getDataItems().isEmpty()) {
+                    mem.loadDataItems(result.getDataItems());
+                }
+
+                // If cache is enabled in the config, use it. This will show cache stalls
+                // in the debugger, but makes the configuration consistent across modes.
+                cache.CacheHierarchy cacheHier = null;
+                if (cfg.hasCacheConfig()) {
+                    cacheHier = new cache.CacheHierarchy(
+                        cfg.getL1I(), cfg.getL1D(), cfg.getL2(),
+                        cfg.getMainMemoryLatency(), mem);
+                }
+
+                // Create session and return initial snapshot
+                stepSession = new step.StepSession(
+                    result.getInstructions(), mem, rf, cfg, stats, cacheHier);
+
+                // Build initial empty-pipeline snapshot (cycle 0)
+                step.CycleSnapshot initial = new step.CycleSnapshot();
+                initial.cycle = 0;
+                initial.done = false;
+                initial.stall = false;
+                initial.flush = false;
+                initial.hazardType = "NONE";
+                initial.pc = 0;
+                initial.registers = rf.getAll();
+                initial.totalCycles = 0;
+                initial.totalStalls = 0;
+                initial.totalFlushes = 0;
+                initial.instructionsRetired = 0;
+                initial.stages = new step.CycleSnapshot.StageState[5];
+                String[] names = {"IF","ID","EX","MEM","WB"};
+                for (int i = 0; i < 5; i++) {
+                    step.CycleSnapshot.StageState st = new step.CycleSnapshot.StageState();
+                    st.name = names[i]; st.label = "NOP"; st.isNop = true;
+                    initial.stages[i] = st;
+                }
+
+                sendJson(ex, 200, initial.toJson());
+
+            } catch (Exception e) {
+                sendJson(ex, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+            } finally {
+                running.set(false);
+            }
+        }
+    }
+
+    /**
+     * GET /api/step/next
+     * Advances the active StepSession by one cycle.
+     * Returns the CycleSnapshot for that cycle.
+     * Returns 400 if no session has been initialized.
+     */
+    static class StepNextHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange ex) throws IOException {
+            addCors(ex);
+            if ("OPTIONS".equals(ex.getRequestMethod())) {
+                ex.sendResponseHeaders(204, -1);
+                return;
+            }
+            step.StepSession session = stepSession;
+            if (session == null) {
+                sendJson(ex, 400, "{\"error\":\"No active step session. Call POST /api/step/init first.\"}" );
+                return;
+            }
+            step.CycleSnapshot snap = session.step();
+            sendJson(ex, 200, snap.toJson());
         }
     }
 }

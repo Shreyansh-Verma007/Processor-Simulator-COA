@@ -8,7 +8,7 @@
 
 ## 30-Second Explanation (Screening Call)
 
-> "I built a cycle-accurate, 5-stage in-order RISC-V processor simulator in Java with a full-stack web interface. The Java backend models a complete memory hierarchy — split L1I/L1D caches, a unified L2, virtual memory with TLB and swap space — plus pipeline hazard detection with data forwarding and BTFNT branch prediction. It has four modes: pipeline mode, trace replay mode, batch trace mode, and an HTTP API server mode. The API server exposes 9 REST endpoints so a React/TypeScript/Vite frontend can assemble programs, run simulations, and visualize results in the browser. 44 Java source files, 9 packages, zero external dependencies. The frontend deploys to Vercel, the backend to Heroku via Docker."
+> "I built a cycle-accurate, 5-stage in-order RISC-V processor simulator in Java with a full-stack web interface. The Java backend models a complete memory hierarchy — split L1I/L1D caches, a unified L2, virtual memory with TLB and swap space — plus pipeline hazard detection with data forwarding and BTFNT branch prediction. It has four modes: pipeline mode, trace replay mode, batch trace mode, and an HTTP API server mode. The API server exposes 9 REST endpoints so a React/TypeScript/Vite frontend can assemble programs, run simulations, and visualize results in the browser. 44 Java source files, 9 packages, zero external dependencies. The frontend deploys to Vercel, the backend to Railway via Docker."
 
 ## 60-Second Explanation (Tell Me About Your Project)
 
@@ -46,7 +46,7 @@
 
 ## Technical Explanation (For Senior Engineer)
 
-> "It's a cycle-accurate 5-stage in-order RISC-V scalar pipeline simulator (IF→ID→EX→MEM→WB) with configurable, precise stall/flush/drain semantics. Hazard resolution uses a `HazardUnit` for load-use and no-forwarding RAW detection, and a `ForwardingUnit` implementing EX/MEM→EX and MEM/WB→EX bypass paths (loads excluded from EX/MEM forwarding — they still need a 1-cycle stall). Branch prediction is static BTFNT with eager PC redirect in ID and 2-instruction flush on misprediction in EX. The memory subsystem is a null-safe 3-level hierarchy: split L1I/L1D + optional unified L2, all set-associative with LRU/FIFO eviction and write-back write-allocate. Dirty evictions cascade L1→L2→memory. Stats are carefully counted: one L1 access per pipeline request, one L2 access on L1 miss — internal fills and writebacks use `NoStats` paths. The trace replay mode layers a VM subsystem on top: 16-entry fully-associative DTLB, flat page table (2^20 entries for 4GB VA space), LRU/FIFO page replacement, in-memory swap HashMap with `swap.txt` persistence, and PIPT cache invalidation on frame eviction via `CacheHierarchy.invalidateFrame()`. Everything is driven by a single `Config` class — latencies, cache geometry, VM sizes, replacement policies — ensuring physical architecture consistency between pipeline and trace modes. Two-pass assembler handles `.data`/`.text` sections, labels, pseudo-instructions, and 32-bit instruction encoding for cache-based fetch. **On top of the simulator core, I added a full-stack web layer: `ApiServer.java` wraps all modes behind 9 REST endpoints using Java's built-in `HttpServer` (zero added dependencies), and a React/TypeScript/Vite single-page app provides a code editor, live stats dashboard, trace upload UI, pipeline diagram, and documentation pages. Backend deploys to Heroku via Docker; frontend deploys to Vercel.** 44 Java files, 9 packages, zero external Java dependencies."
+> "It's a cycle-accurate 5-stage in-order RISC-V scalar pipeline simulator (IF→ID→EX→MEM→WB) with configurable, precise stall/flush/drain semantics. Hazard resolution uses a `HazardUnit` for load-use and no-forwarding RAW detection, and a `ForwardingUnit` implementing EX/MEM→EX and MEM/WB→EX bypass paths (loads excluded from EX/MEM forwarding — they still need a 1-cycle stall). Branch prediction is static BTFNT with eager PC redirect in ID and 2-instruction flush on misprediction in EX. The memory subsystem is a null-safe 3-level hierarchy: split L1I/L1D + optional unified L2, all set-associative with LRU/FIFO eviction and write-back write-allocate. Dirty evictions cascade L1→L2→memory. Stats are carefully counted: one L1 access per pipeline request, one L2 access on L1 miss — internal fills and writebacks use `NoStats` paths. The trace replay mode layers a VM subsystem on top: 16-entry fully-associative DTLB, flat page table (2^20 entries for 4GB VA space), LRU/FIFO page replacement, in-memory swap HashMap with `swap.txt` persistence, and PIPT cache invalidation on frame eviction via `CacheHierarchy.invalidateFrame()`. Everything is driven by a single `Config` class — latencies, cache geometry, VM sizes, replacement policies — ensuring physical architecture consistency between pipeline and trace modes. Two-pass assembler handles `.data`/`.text` sections, labels, pseudo-instructions, and 32-bit instruction encoding for cache-based fetch. **On top of the simulator core, I added a full-stack web layer: `ApiServer.java` wraps all modes behind 9 REST endpoints using Java's built-in `HttpServer` (zero added dependencies), and a React/TypeScript/Vite single-page app provides a code editor, live stats dashboard, trace upload UI, pipeline diagram, and documentation pages. Backend deploys to Railway via Docker; frontend deploys to Vercel.** 44 Java files, 9 packages, zero external Java dependencies."
 
 ---
 
@@ -282,7 +282,7 @@ web/                                  React + TypeScript + Vite frontend (separa
 │       ├── RunButton.tsx             Animated run/loading/done button with elapsed time
 │       └── OutputTabs.tsx            Tab bar: Console / Stats / Swap / Raw
 ├── Dockerfile                        Multi-stage: builds Java backend + serves combined app
-├── heroku.yml                        Heroku Docker deployment config
+├── railway.yml                        Railway Docker deployment config
 └── vercel.json                       Vercel SPA routing config (rewrites → index.html)
 ```
 
@@ -314,7 +314,7 @@ web/                                  React + TypeScript + Vite frontend (separa
 8. **32-bit custom encoding (not standard RISC-V encoding)** — Simplified layout (5-bit opcode + 5+5+5+12) to keep the encoder/decoder trivial; the ISA subset doesn't need full RV32I encoding complexity
 9. **`ApiServer` uses Java's built-in `HttpServer` — zero external dependencies** — `com.sun.net.httpserver` ships with the JDK; no Maven/Gradle needed. The server uses a `CachedThreadPool` for concurrent requests and an `AtomicBoolean` running flag to reject concurrent simulation attempts (409 Conflict).
 10. **`runPipelinePublic()` made package-accessible** — The pipeline entry point is declared `public static` so `ApiServer.RunHandler` can call it directly without reflection, sharing I/O redirection (stdout → `console.txt`) cleanly.
-11. **Frontend/backend decoupling via CORS + proxy** — The Vite dev server proxies `/api` to `localhost:8080`, so the frontend works identically in dev and production. CORS headers (`Access-Control-Allow-Origin: *`) are set on every response so the Vercel-deployed frontend can call the Heroku-hosted backend.
+11. **Frontend/backend decoupling via CORS + proxy** — The Vite dev server proxies `/api` to `localhost:8080`, so the frontend works identically in dev and production. CORS headers (`Access-Control-Allow-Origin: *`) are set on every response so the Vercel-deployed frontend can call the Railway-hosted backend.
 
 ---
 
@@ -622,7 +622,7 @@ All JSON is hand-serialized using `escapeJson()` — a simple string replacement
 private static final int PORT = System.getenv("PORT") != null
     ? Integer.parseInt(System.getenv("PORT")) : 8080;
 ```
-Heroku sets `PORT` dynamically. The server reads this at startup, making the same binary runnable locally (`8080`) and on Heroku (`random port assigned by dyno`).
+Railway sets `PORT` dynamically. The server reads this at startup, making the same binary runnable locally (`8080`) and on Railway (`random port assigned by dyno`).
 
 ### Interview Questions
 - *Q: Why not use Spring Boot or Quarkus?*
@@ -671,7 +671,7 @@ The CLI simulator is powerful but requires Java knowledge to operate. The web fr
 ### Deployment Architecture
 ```
 ┌──────────────────────┐         ┌────────────────────────┐
-│   Vercel (Frontend)  │  HTTPS  │   Heroku (Backend)     │
+│   Vercel (Frontend)  │  HTTPS  │   Railway (Backend)     │
 │   React + Vite SPA   │ ──────▶ │   java Main --server   │
 │   Static files       │         │   PORT from env        │
 │   vercel.json: SPA   │         │   Dockerfile:          │
@@ -680,8 +680,8 @@ The CLI simulator is powerful but requires Java knowledge to operate. The web fr
 ```
 - `vercel.json` rewrites all routes to `index.html` (SPA routing)
 - `Dockerfile`: builds Java backend with `javac -d out -sourcepath src src/Main.java`, then runs `java -cp out Main --server`
-- `heroku.yml` declares the Docker build/run commands
-- `VITE_API_URL` env var in the Vercel project settings points the frontend to the Heroku URL
+- `railway.yml` declares the Docker build/run commands
+- `VITE_API_URL` env var in the Vercel project settings points the frontend to the Railway URL
 
 ### Interview Questions
 - *Q: Why TypeScript instead of plain JavaScript for the frontend?*
@@ -773,7 +773,7 @@ The parser handles both `LW x1, 0(x2)` and `LW x1, x2, 0` syntax using `memOff()
 | Deployment | Vercel static (trivial) | Vercel serverless (more config) | Any CDN |
 | Component model | Functional hooks | Same | N/A |
 
-**Why Vite SPA?** The simulator UI is purely client-driven — the backend is the source of truth for simulation state, and all UI updates happen after API calls. No SSR or SEO requirements. Vite's dev proxy (`/api → localhost:8080`) mirrors production exactly (Vercel rewrites → Heroku), so there's no environment-specific code in the frontend.
+**Why Vite SPA?** The simulator UI is purely client-driven — the backend is the source of truth for simulation state, and all UI updates happen after API calls. No SSR or SEO requirements. Vite's dev proxy (`/api → localhost:8080`) mirrors production exactly (Vercel rewrites → Railway), so there's no environment-specific code in the frontend.
 
 ## Data Structures: HashMap vs Array vs TreeMap
 
@@ -1398,7 +1398,7 @@ Add automated unit tests from the start. I validated correctness manually (memor
 ## Tech Stack
 - **Backend Language:** Java 17+ — OOP maps to hardware, records for Instruction, zero external dependencies
 - **Frontend:** React 18 + TypeScript + Vite — `web/` directory, deployed to Vercel
-- **Deployment:** Heroku (Docker) for backend, Vercel (static) for frontend
+- **Deployment:** Railway (Docker) for backend, Vercel (static) for frontend
 - **Build:** `javac -d out -sourcepath src src/Main.java` — no build tool needed
 - **Run (pipeline):** `java -cp out Main input.asm`
 - **Run (trace):** `java -cp out Main --trace phase3_traces/trace01.trace`
@@ -1465,7 +1465,7 @@ Add automated unit tests from the start. I validated correctness manually (memor
 
 **Interviewer:** I notice there's also a web frontend. How does that connect to the Java simulator?
 
-**You:** I added `ApiServer.java` — a lightweight HTTP server using Java's built-in `com.sun.net.httpserver`, which ships with the JDK, so zero external dependencies. It exposes 9 REST endpoints: you can get and set the ASM file, trigger a pipeline simulation, fetch the output files, upload a trace file for replay, or list and fetch preset traces. The React/TypeScript frontend — deployed on Vercel — calls these endpoints via Axios. In dev, Vite proxies `/api` to `localhost:8080`; in production, the `VITE_API_URL` env var points to the Heroku backend. The backend runs in a Docker container on Heroku. One design challenge was preventing concurrent simulations — I use an `AtomicBoolean` running flag with compare-and-set, so a second request while a simulation is running immediately gets a 409 Conflict.
+**You:** I added `ApiServer.java` — a lightweight HTTP server using Java's built-in `com.sun.net.httpserver`, which ships with the JDK, so zero external dependencies. It exposes 9 REST endpoints: you can get and set the ASM file, trigger a pipeline simulation, fetch the output files, upload a trace file for replay, or list and fetch preset traces. The React/TypeScript frontend — deployed on Vercel — calls these endpoints via Axios. In dev, Vite proxies `/api` to `localhost:8080`; in production, the `VITE_API_URL` env var points to the Railway backend. The backend runs in a Docker container on Railway. One design challenge was preventing concurrent simulations — I use an `AtomicBoolean` running flag with compare-and-set, so a second request while a simulation is running immediately gets a 409 Conflict.
 
 **Interviewer:** Excellent. Last question: if you had unlimited time, what would you add?
 
@@ -1484,10 +1484,10 @@ Because interviewers often won't look at the raw codebase, they will base their 
 ## Deployed Project Questions (Frontend / API)
 
 **Q: Walk me through what happens when I click "Run Simulation" on your frontend.**
-**A:** When you click "Run", the React frontend makes an Axios POST request to `/api/run` on the Heroku-hosted Java backend. The backend `ApiServer` receives the request and flips an `AtomicBoolean` lock to prevent concurrent simulations. It invokes the `Compiler` to convert your assembly text into 32-bit machine code, loads it into the `Memory` object, and starts the `PipelineController`. The pipeline runs cycle-by-cycle until it hits a `HALT` instruction. The server then writes the logs to `console.txt` and `output.txt`, flips the lock back to false, and returns an HTTP 200 OK. The frontend then makes subsequent GET requests to fetch those log files and updates the React UI to display the stats dashboard and pipeline diagram.
+**A:** When you click "Run", the React frontend makes an Axios POST request to `/api/run` on the Railway-hosted Java backend. The backend `ApiServer` receives the request and flips an `AtomicBoolean` lock to prevent concurrent simulations. It invokes the `Compiler` to convert your assembly text into 32-bit machine code, loads it into the `Memory` object, and starts the `PipelineController`. The pipeline runs cycle-by-cycle until it hits a `HALT` instruction. The server then writes the logs to `console.txt` and `output.txt`, flips the lock back to false, and returns an HTTP 200 OK. The frontend then makes subsequent GET requests to fetch those log files and updates the React UI to display the stats dashboard and pipeline diagram.
 
 **Q: Your server uses Java's built-in `HttpServer` with zero dependencies. Why not use Spring Boot?**
-**A:** Spring Boot is fantastic, but it's very heavy. It requires Maven or Gradle and downloads hundreds of megabytes of dependencies. My goal for this project was to keep it as raw and close to the metal as possible—both in the simulated processor and in the backend code. Using the JDK's built-in `com.sun.net.httpserver` kept the project lightweight, making it incredibly easy to compile and deploy via a simple Dockerfile on Heroku without any heavy build tools.
+**A:** Spring Boot is fantastic, but it's very heavy. It requires Maven or Gradle and downloads hundreds of megabytes of dependencies. My goal for this project was to keep it as raw and close to the metal as possible—both in the simulated processor and in the backend code. Using the JDK's built-in `com.sun.net.httpserver` kept the project lightweight, making it incredibly easy to compile and deploy via a simple Dockerfile on Railway without any heavy build tools.
 
 **Q: How do you handle multiple users trying to use the simulator at once?**
 **A:** The `ApiServer` uses a `CachedThreadPool` to handle incoming HTTP requests concurrently, which is great for serving the static files and trace lists simultaneously. However, the simulation itself modifies shared state (`input.asm`, `output.txt`). To prevent race conditions, I use an `AtomicBoolean` flag called `running`. If User A starts a simulation, it sets `running` to true. If User B clicks run at the same time, the server checks the flag, sees it's true, and immediately returns a `409 Conflict` (Server Busy) error.

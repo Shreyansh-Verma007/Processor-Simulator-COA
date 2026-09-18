@@ -3,6 +3,7 @@ import { Settings, Layers, Cpu, Clock, RotateCcw, CheckCircle2, Info } from 'luc
 
 export interface SimConfig {
   forwardingEnabled: boolean;
+  l1dEnabled: boolean;        // NEW
   l1dSizeKb: number;        // KB
   l1dBlockBytes: number;    // bytes
   l1dAssoc: number;         // ways
@@ -18,6 +19,7 @@ export interface SimConfig {
 
 export const DEFAULT_CONFIG: SimConfig = {
   forwardingEnabled: true,
+  l1dEnabled:    true,
   l1dSizeKb:     4,
   l1dBlockBytes: 64,
   l1dAssoc:      1,
@@ -226,30 +228,37 @@ export default function ConfigPanel({ config, onChange }: ConfigPanelProps) {
 
       {/* ── L1D Cache ── */}
       <Section icon={<Layers size={14} />} title="L1D Cache (Data)">
-        <Row label="Cache Size" hint="Total capacity of the L1 data cache.">
-          <SelectInput
-            value={config.l1dSizeKb}
-            onChange={v => set('l1dSizeKb', v)}
-            options={[1, 2, 4, 8, 16, 32].map(kb => ({ value: kb, label: `${kb} KB` }))}
-          />
+        <Row label="Enable L1D" hint="When disabled, data loads/stores go directly to main memory (adds memory latency per access).">
+          <Toggle value={config.l1dEnabled} onChange={v => set('l1dEnabled', v)} />
         </Row>
-        <Row label="Block Size" hint="Size of each cache line. Larger blocks improve spatial locality.">
-          <SelectInput
-            value={config.l1dBlockBytes}
-            onChange={v => set('l1dBlockBytes', v)}
-            options={[16, 32, 64, 128].map(b => ({ value: b, label: `${b} B` }))}
-          />
-        </Row>
-        <Row label="Associativity" hint="Number of ways per set. 1 = direct-mapped. Higher reduces conflict misses.">
-          <SelectInput
-            value={config.l1dAssoc}
-            onChange={v => set('l1dAssoc', v)}
-            options={[1, 2, 4, 8].map(w => ({ value: w, label: w === 1 ? '1-way (Direct)' : `${w}-way` }))}
-          />
-        </Row>
-        <Row label="Hit Latency" hint="Cycles to serve a cache hit.">
-          <NumberInput value={config.l1dLatency} onChange={v => set('l1dLatency', v)} min={1} max={10} unit="cycles" />
-        </Row>
+        {config.l1dEnabled && (
+          <>
+            <Row label="Cache Size" hint="Total capacity of the L1 data cache.">
+              <SelectInput
+                value={config.l1dSizeKb}
+                onChange={v => set('l1dSizeKb', v)}
+                options={[1, 2, 4, 8, 16, 32].map(kb => ({ value: kb, label: `${kb} KB` }))}
+              />
+            </Row>
+            <Row label="Block Size" hint="Size of each cache line. Larger blocks improve spatial locality.">
+              <SelectInput
+                value={config.l1dBlockBytes}
+                onChange={v => set('l1dBlockBytes', v)}
+                options={[16, 32, 64, 128].map(b => ({ value: b, label: `${b} B` }))}
+              />
+            </Row>
+            <Row label="Associativity" hint="Number of ways per set. 1 = direct-mapped. Higher reduces conflict misses.">
+              <SelectInput
+                value={config.l1dAssoc}
+                onChange={v => set('l1dAssoc', v)}
+                options={[1, 2, 4, 8].map(w => ({ value: w, label: w === 1 ? '1-way (Direct)' : `${w}-way` }))}
+              />
+            </Row>
+            <Row label="Hit Latency" hint="Cycles to serve a cache hit.">
+              <NumberInput value={config.l1dLatency} onChange={v => set('l1dLatency', v)} min={1} max={10} unit="cycles" />
+            </Row>
+          </>
+        )}
       </Section>
 
       {/* ── L1I Cache ── */}
@@ -307,7 +316,7 @@ export default function ConfigPanel({ config, onChange }: ConfigPanelProps) {
       }}>
         <span style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>Effective config: </span>
         Forwarding={config.forwardingEnabled ? 'ON' : 'OFF'} ·{' '}
-        L1D={config.l1dSizeKb}KB/{config.l1dBlockBytes}B/{config.l1dAssoc}-way ·{' '}
+        L1D={config.l1dEnabled ? `${config.l1dSizeKb}KB/${config.l1dBlockBytes}B/${config.l1dAssoc}-way` : 'OFF'} ·{' '}
         L1I={config.l1iEnabled ? 'ON' : 'OFF'} ·{' '}
         L2={config.l2Enabled ? `${config.l2SizeKb}KB/${config.l2Assoc}-way` : 'OFF'} ·{' '}
         MEM={config.memoryLatency}cy ·{' '}

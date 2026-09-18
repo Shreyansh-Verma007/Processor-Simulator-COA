@@ -9,6 +9,7 @@ import SwapPanel from '../components/SwapPanel';
 import PipelineDiagram from '../components/PipelineDiagram';
 import MemoryPanel from '../components/MemoryPanel';
 import ConfigPanel, { SimConfig, DEFAULT_CONFIG } from '../components/ConfigPanel';
+import StepDebugger from '../components/StepDebugger';
 import { useSimulator } from '../hooks/useSimulator';
 
 const EXAMPLES: { label: string; code: string }[] = [
@@ -163,7 +164,7 @@ export default function SimulatorPage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
 
       {/* Top bar */}
       <header style={{
@@ -261,7 +262,7 @@ export default function SimulatorPage() {
       )}
 
       {/* Main split pane */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
 
         {/* LEFT: Code editor */}
         <div style={{ width: `${editorWidth}%`, height: '100%', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', overflow: 'hidden' }}>
@@ -343,19 +344,20 @@ export default function SimulatorPage() {
         />
 
         {/* RIGHT: Output panels */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0, minWidth: 0 }}>
           <OutputTabs
             activeTab={activeTab}
             onTabChange={setActiveTab}
             hasData={hasData}
             configModified={configModified}
           />
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            {activeTab === 'console' && <ConsolePanel content={sim.consoleContent} />}
-            {activeTab === 'stats'   && <StatsPanel   content={sim.outputContent} />}
-            {activeTab === 'memory'  && <MemoryPanel  content={sim.consoleContent} />}
-            {activeTab === 'swap'    && <SwapPanel    content={sim.swapContent} />}
-            {activeTab === 'config'  && <ConfigPanel  config={simConfig} onChange={setSimConfig} />}
+          <div style={{ flex: 1, overflow: 'hidden', position: 'relative', minHeight: 0 }}>
+            {activeTab === 'console'  && <ConsolePanel  content={sim.consoleContent} />}
+            {activeTab === 'stats'    && <StatsPanel    content={sim.outputContent} />}
+            {activeTab === 'memory'   && <MemoryPanel   content={sim.consoleContent} />}
+            {activeTab === 'swap'     && <SwapPanel     content={sim.swapContent} />}
+            {activeTab === 'config'   && <ConfigPanel   config={simConfig} onChange={setSimConfig} />}
+            {activeTab === 'debugger' && <StepDebugger  code={sim.asmCode} config={simConfig} />}
             {activeTab === 'raw'     && (
               <RawView
                 consoleContent={sim.consoleContent}

@@ -52,6 +52,7 @@ export const runSimulation = async (asmCode: string, cfg?: SimConfig): Promise<S
   const params = new URLSearchParams();
   if (cfg) {
     params.set('forwarding',  String(cfg.forwardingEnabled));
+    params.set('l1dEnabled',  String(cfg.l1dEnabled));
     params.set('l1dSize',     String(cfg.l1dSizeKb * 1024));
     params.set('l1dBlock',    String(cfg.l1dBlockBytes));
     params.set('l1dAssoc',    String(cfg.l1dAssoc));
@@ -104,4 +105,61 @@ export const runTrace = async (file: File): Promise<TraceResult> => {
 export const listTraces = async (): Promise<string[]> => {
   const { data } = await api.get('/traces');
   return data.files ?? [];
+};
+
+// ── Step Debugger ──────────────────────────────────────────────────────────
+
+export interface StageState {
+  name: string;    // "IF" | "ID" | "EX" | "MEM" | "WB"
+  label: string;   // e.g. "ADD x3, x1, x2"
+  isNop: boolean;
+  isStall: boolean;
+  isFlush: boolean;
+  instrPc: number;
+}
+
+export interface CycleSnapshot {
+  cycle: number;
+  done: boolean;
+  stall: boolean;
+  flush: boolean;
+  hazardType: string; // "NONE" | "LOAD_USE" | "RAW" | "MULTI_CYCLE" | "BRANCH_FLUSH" | "CACHE_STALL"
+  pc: number;
+  stages: StageState[];
+  registers: number[];
+  totalCycles: number;
+  totalStalls: number;
+  totalFlushes: number;
+  instructionsRetired: number;
+}
+
+/** POST /api/step/init — compile code and initialize a new step session. */
+export const initStep = async (asmCode: string, cfg?: SimConfig): Promise<CycleSnapshot> => {
+  const params = new URLSearchParams();
+  if (cfg) {
+    params.set('forwarding',  String(cfg.forwardingEnabled));
+    params.set('l1dEnabled',  String(cfg.l1dEnabled));
+    params.set('l1dSize',     String(cfg.l1dSizeKb * 1024));
+    params.set('l1dBlock',    String(cfg.l1dBlockBytes));
+    params.set('l1dAssoc',    String(cfg.l1dAssoc));
+    params.set('l1dLatency',  String(cfg.l1dLatency));
+    params.set('l1iEnabled',  String(cfg.l1iEnabled));
+    params.set('l2Enabled',   String(cfg.l2Enabled));
+    params.set('l2Size',      String(cfg.l2SizeKb * 1024));
+    params.set('l2Assoc',     String(cfg.l2Assoc));
+    params.set('memLatency',  String(cfg.memoryLatency));
+    params.set('mulLatency',  String(cfg.mulLatency));
+    params.set('divLatency',  String(cfg.divLatency));
+  }
+  const url = params.toString() ? `/step/init?${params.toString()}` : '/step/init';
+  const { data } = await api.post(url, asmCode, {
+    headers: { 'Content-Type': 'text/plain' },
+  });
+  return data as CycleSnapshot;
+};
+
+/** GET /api/step/next — advance the pipeline by one cycle. */
+export const nextStep = async (): Promise<CycleSnapshot> => {
+  const { data } = await api.get('/step/next');
+  return data as CycleSnapshot;
 };

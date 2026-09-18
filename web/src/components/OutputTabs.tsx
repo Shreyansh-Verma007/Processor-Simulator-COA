@@ -1,4 +1,4 @@
-import { Terminal, BarChart2, HardDrive, FileText, Database, Settings } from 'lucide-react';
+import { Terminal, BarChart2, HardDrive, FileText, Database, Settings, Bug } from 'lucide-react';
 
 interface OutputTabsProps {
   activeTab: string;
@@ -14,6 +14,7 @@ const TABS = [
   { id: 'swap',     label: 'Swap',     icon: HardDrive },
   { id: 'raw',      label: 'Raw',      icon: FileText  },
   { id: 'config',   label: 'Config',   icon: Settings  },
+  { id: 'debugger', label: 'Debugger', icon: Bug       },
 ];
 
 export default function OutputTabs({ activeTab, onTabChange, hasData, configModified }: OutputTabsProps) {

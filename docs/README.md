@@ -2,7 +2,7 @@
 
 > **Project:** `Processor-Simulator-COA`
 > **Last Updated:** 2026-08-17
-> **Total Reports:** 43 across 10 packages
+> **Total Reports:** 46 across 11 packages
 
 All reports are organized by Java package, mirroring the `src/` source layout.
 
@@ -12,7 +12,7 @@ All reports are organized by Java package, mirroring the `src/` source layout.
 
 | Package | Path | Description | Reports |
 |---------|------|-------------|---------|
-| [main](#-main) | `src/` | Application entry point | 1 |
+| [main](#-main) | `src/` | Application entry point | 2 |
 | [cache](#-cache) | `src/cache/` | L1I, L1D, L2 cache hierarchy | 5 |
 | [common](#-common) | `src/common/` | Shared types, config, encoding | 5 |
 | [compiler](#-compiler) | `src/compiler/` | RISC-V assembler (lexer → parser → encoder) | 5 |
@@ -20,6 +20,7 @@ All reports are organized by Java package, mirroring the `src/` source layout.
 | [hazard](#-hazard) | `src/hazard/` | Hazard detection & data forwarding | 3 |
 | [pipeline\_registers](#-pipeline_registers) | `src/pipeline_registers/` | Inter-stage latch structs | 4 |
 | [pipeline\_stages](#-pipeline_stages) | `src/pipeline_stages/` | IF/ID/EX/MEM/WB stage logic & controller | 6 |
+| [step](#-step) | `src/step/` | Step-by-step interactive simulation | 2 |
 | [trace](#-trace) | `src/trace/` | Phase 3 trace-replay simulator | 4 |
 | [vm](#-vm) | `src/vm/` | Virtual memory, TLB, page tables | 6 |
 
@@ -32,6 +33,7 @@ All reports are organized by Java package, mirroring the `src/` source layout.
 | Report | Java File | Description |
 |--------|-----------|-------------|
 | [Main\_Report.md](main/Main_Report.md) | `Main.java` | Entry point; CLI arg parsing, mode dispatch, output routing |
+| [ApiServer\_Report.md](main/ApiServer_Report.md) | `ApiServer.java` | HTTP backend server for web UI simulation |
 
 ---
 
@@ -130,6 +132,17 @@ All reports are organized by Java package, mirroring the `src/` source layout.
 
 ---
 
+## 📁 step
+
+> **Source:** `src/step/` — Step-by-step simulation and state snapshots for interactive debugging.
+
+| Report | Java File | Description |
+|--------|-----------|-------------|
+| [StepSession\_Report.md](step/StepSession_Report.md) | `StepSession.java` | Manages interactive simulation sessions |
+| [CycleSnapshot\_Report.md](step/CycleSnapshot_Report.md) | `CycleSnapshot.java` | Captures processor state for a single cycle |
+
+---
+
 ## 📁 trace
 
 > **Source:** `src/trace/` — Phase 3 trace-replay simulator for memory-access trace files.
@@ -164,7 +177,7 @@ All reports are organized by Java package, mirroring the `src/` source layout.
 
 | Package | Source Files | Reports | Status |
 |---------|-------------|---------|--------|
-| `main` | 1 | 1 | ✅ Complete |
+| `main` | 2 | 2 | ✅ Complete |
 | `cache` | 5 | 5 | ✅ Complete |
 | `common` | 5 | 5 | ✅ Complete |
 | `compiler` | 5 | 5 | ✅ Complete |
@@ -172,9 +185,10 @@ All reports are organized by Java package, mirroring the `src/` source layout.
 | `hazard` | 3 | 3 | ✅ Complete |
 | `pipeline_registers` | 4 | 4 | ✅ Complete |
 | `pipeline_stages` | 6 | 6 | ✅ Complete |
+| `step` | 2 | 2 | ✅ Complete |
 | `trace` | 3 *(+1 missing)* | 4 | ⚠️ `TraceDataCache.java` source missing |
 | `vm` | 6 | 6 | ✅ Complete |
-| **Total** | **42 (+1 missing)** | **43** | **9/10 packages fully sourced** |
+| **Total** | **45 (+1 missing)** | **46** | **10/11 packages fully sourced** |
 
 ---
 
