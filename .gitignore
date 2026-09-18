@@ -49,8 +49,9 @@ tmp_sources.txt
 temp.java
 prev_trace.java
 sources.txt
-
-
+Interview_Cheat_Sheet.md
+interview_guide_projects.md
+RISC-V_Pipeline_Simulator_Interview_Report.md
 ### Frontend (web/) ###
 web/node_modules/
 web/dist/
