@@ -20,6 +20,7 @@ export interface SimResult {
 
 export interface SimConfig {
   forwardingEnabled: boolean;
+  l1dEnabled: boolean;
   l1dSizeKb: number;
   l1dBlockBytes: number;
   l1dAssoc: number;
